@@ -1,0 +1,6 @@
+.claude/
+*.pyc
+__pycache__/
+popup.html
+popup.js
+popup.css

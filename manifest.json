@@ -1,0 +1,39 @@
+{
+  "manifest_version": 3,
+  "name": "SecretSauce",
+  "version": "1.0.0",
+  "description": "Detect secrets, API keys, and endpoints in web pages automatically.",
+  "author": "K. Boykov",
+  "permissions": [
+    "activeTab",
+    "scripting",
+    "storage",
+    "tabs"
+  ],
+  "host_permissions": ["<all_urls>"],
+  "action": {
+    "default_icon": {
+      "16": "icons/icon16.png",
+      "48": "icons/icon48.png",
+      "128": "icons/icon128.png"
+    },
+    "default_title": "SecretSauce"
+  },
+  "content_scripts": [
+    {
+      "matches": ["<all_urls>"],
+      "js": ["content.js"],
+      "run_at": "document_idle",
+      "all_frames": false
+    }
+  ],
+  "background": {
+    "service_worker": "background.js"
+  },
+  "web_accessible_resources": [
+    {
+      "resources": ["rules/secrets.json", "icons/*", "app.html", "app.css", "app.js"],
+      "matches": ["<all_urls>"]
+    }
+  ]
+}
