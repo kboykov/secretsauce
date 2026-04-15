@@ -100,7 +100,7 @@ html, body {
   font-weight: 700;
   text-transform: uppercase;
   letter-spacing: .7px;
-  color: var(--w4);
+  color: #8d8d8d;
   margin-bottom: 4px;
 }
 
@@ -140,7 +140,7 @@ html, body {
 
 .stat-l {
   font-size: 9px;
-  color: var(--w4);
+  color: #8a8a8a;
   text-transform: uppercase;
   letter-spacing: .5px;
   margin-top: 3px;
@@ -274,7 +274,7 @@ html, body {
   flex-direction: column;
   gap: 4px;
   font-size: 10px;
-  color: var(--w4);
+  color: #8a8a8a;
 }
 
 /* ── Main panel area ───────────────────────────────────────────────────── */
@@ -502,7 +502,7 @@ html, body {
   font-weight: 700;
   text-transform: uppercase;
   letter-spacing: .5px;
-  color: var(--w4);
+  color: #8d8d8d;
   flex-shrink: 0;
   width: 46px;
 }
@@ -510,7 +510,7 @@ html, body {
 .kv-v {
   flex: 1;
   min-width: 0;
-  color: var(--w3);
+  color: #b0b0b0;
   background: var(--b0);
   border: 1px solid var(--br);
   border-radius: var(--r2);
@@ -524,7 +524,7 @@ html, body {
 .kv-v.mono {
   font-family: 'Cascadia Code', 'Fira Code', 'Consolas', monospace;
   font-size: 10px;
-  color: var(--w4);
+  color: #a3a3a3;
 }
 
 .chips {
@@ -578,7 +578,7 @@ html, body {
 .field-ctx {
   font-size: 10px;
   font-family: 'Cascadia Code', 'Fira Code', 'Consolas', monospace;
-  color: var(--w4);
+  color: #a8a8a8;
   background: var(--b0);
   border: 1px solid var(--br);
   border-radius: var(--r2);
@@ -657,7 +657,7 @@ html, body {
   background: var(--b3);
   border: 1px solid var(--br);
   border-radius: var(--r2);
-  color: var(--w4);
+  color: #a0a0a0;
   font-size: 10px;
   font-family: inherit;
   padding: 3px 8px;
@@ -670,7 +670,7 @@ html, body {
 .cp-btn.copied { color: var(--sev-low); border-color: rgba(52,211,153,.4); }
 
 .chevron {
-  color: var(--w4);
+  color: #909090;
   flex-shrink: 0;
   transition: transform var(--transition);
 }
