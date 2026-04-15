@@ -128,6 +128,22 @@
     return str.length > len ? str.slice(0, len) + '…' : str;
   }
 
+  function formatContextSnippet(text) {
+    return String(text || '')
+      .replace(/\r\n?/g, '\n')
+      .replace(/\t/g, '  ')
+      .replace(/[ \f\v]+$/gm, '')
+      .replace(/\n{4,}/g, '\n\n\n')
+      .trim();
+  }
+
+  function buildContextWindow(content, start, end) {
+    return formatContextSnippet(content.slice(
+      Math.max(0, start),
+      Math.min(content.length, end)
+    ));
+  }
+
   function createScanId() {
     return `${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 10)}`;
   }
@@ -249,7 +265,7 @@
         const key  = endpointKey(method, path, query, u.href);
         if (seen.has(key)) return;
         seen.add(key);
-        const context  = el ? el.outerHTML.replace(/[\r\n\t]+/g, ' ').slice(0, 300) : '';
+        const context  = el ? formatContextSnippet(el.outerHTML).slice(0, 900) : '';
         const rawMatch = val; // raw attribute value — appears verbatim in outerHTML
         found.push({
           path,
@@ -323,9 +339,9 @@
           if (val.startsWith('data:') || val.startsWith('javascript:') ||
               val.startsWith('#') || val === '/' || /^[a-zA-Z0-9_-]+$/.test(val)) continue;
           if (!candidates.has(val)) {
-            const start = Math.max(0, match.index - 80);
-            const end   = Math.min(text.length, match.index + match[0].length + 80);
-            candidates.set(val, text.slice(start, end).replace(/[\r\n\t]+/g, ' ').trim());
+            const start = Math.max(0, match.index - 220);
+            const end   = Math.min(text.length, match.index + match[0].length + 220);
+            candidates.set(val, buildContextWindow(text, start, end));
           }
         }
       });
@@ -561,9 +577,9 @@
         const value = (match[1] || match[0]).trim();
         if (isSecretFP(value)) continue;
 
-        const start   = Math.max(0, match.index - 80);
-        const end     = Math.min(content.length, match.index + match[0].length + 80);
-        const context = content.slice(start, end).replace(/[\r\n\t]+/g, ' ').trim();
+        const start   = Math.max(0, match.index - 240);
+        const end     = Math.min(content.length, match.index + match[0].length + 240);
+        const context = buildContextWindow(content, start, end);
 
         const s = { id: pat.id, name: pat.name, severity: pat.severity,
                     value, context, source, timestamp: Date.now() };
@@ -626,9 +642,9 @@
         if (shannonEntropy(value) < 3.6) continue;
       }
 
-      const start   = Math.max(0, match.index - 80);
-      const end     = Math.min(content.length, match.index + match[0].length + 80);
-      const context = content.slice(start, end).replace(/[\r\n\t]+/g, ' ').trim();
+      const start   = Math.max(0, match.index - 240);
+      const end     = Math.min(content.length, match.index + match[0].length + 240);
+      const context = buildContextWindow(content, start, end);
 
       found.push({
         id: 'high-entropy', name: 'High Entropy String', severity: 'medium',
@@ -726,9 +742,9 @@
           ...extractQueryParamNames(query),
           ...extractParams(content, match.index),
         ])).slice(0, 20);
-        const ctxStart  = Math.max(0, match.index - 80);
-        const ctxEnd    = Math.min(content.length, match.index + match[0].length + 80);
-        const context   = content.slice(ctxStart, ctxEnd).replace(/[\r\n\t]+/g, ' ').trim();
+        const ctxStart  = Math.max(0, match.index - 260);
+        const ctxEnd    = Math.min(content.length, match.index + match[0].length + 260);
+        const context   = buildContextWindow(content, ctxStart, ctxEnd);
         found.push({
           path,
           query,

@@ -23,6 +23,8 @@ let expandAllEndpoints = false;
 let expandAllSecrets = false;
 let endpointOpenKeys = new Set();
 let secretOpenKeys = new Set();
+let endpointContextOpenKeys = new Set();
+let secretContextOpenKeys = new Set();
 
 const $ = id => document.getElementById(id);
 const pageUrlEl = $('page-url');
@@ -418,17 +420,7 @@ function renderEndpoints() {
     .filter(endpoint => {
       if (method && (endpoint.method || 'GET').toUpperCase() !== method) return false;
       if (!search) return true;
-      const haystack = [
-        endpoint.path,
-        endpoint.url,
-        endpoint.query,
-        ...(endpoint.querySamples || []),
-        endpoint.source,
-        ...(endpoint.params || []),
-        ...(endpoint.sources || []),
-        ...(endpoint.pageUrls || []),
-      ].join(' ').toLowerCase();
-      return haystack.includes(search);
+      return endpointDisplayUrl(endpoint).toLowerCase().includes(search);
     })
     .sort((a, b) => (b.timestamp || 0) - (a.timestamp || 0));
 
@@ -463,6 +455,7 @@ function renderEndpoints() {
     const displayUrl = endpointDisplayUrl(endpoint);
     const copyValue = endpoint.url || displayUrl;
     const isOpen = expandAllEndpoints || endpointOpenKeys.has(key);
+    const isContextOpen = endpointContextOpenKeys.has(key);
 
     const card = document.createElement('div');
     card.className = `ep-card${isOpen ? ' open' : ''}`;
@@ -482,7 +475,7 @@ function renderEndpoints() {
         ${queryValue ? `<div class="kv"><span class="kv-k">Query</span><span class="kv-v mono">${esc(queryValue)}</span></div>` : ''}
         ${hasParams ? `<div class="kv"><span class="kv-k">Params</span></div><div class="chips">${endpoint.params.map(param => `<span class="chip">${esc(param)}</span>`).join('')}</div>` : ''}
         <div class="kv"><span class="kv-k">Seen</span><span class="kv-v">${esc(String(endpoint.occurrences || 1))} times on ${esc(String(pageCount || 1))} pages (${esc(String(sourceCount || 1))} sources)</span></div>
-        ${hasContext ? `<div class="field"><div class="field-label">Context</div><div class="field-ctx">${renderCtx(endpoint.context, endpoint.rawMatch || endpoint.url || endpoint.path)}</div></div>` : ''}
+        ${hasContext ? `<div class="field"><div class="field-head"><div class="field-label">Context</div><button class="cp-btn ctx-toggle">${isContextOpen ? 'Collapse context' : 'Expand context'}</button></div><div class="field-ctx${isContextOpen ? ' expanded' : ''}">${renderCtx(endpoint.context, endpoint.rawMatch || endpoint.url || endpoint.path)}</div></div>` : ''}
       </div>`;
 
     card.querySelector('.ep-row').addEventListener('click', event => {
@@ -507,6 +500,22 @@ function renderEndpoints() {
       event.stopPropagation();
       copyText(copyValue, event.currentTarget);
     });
+    card.querySelector('.ctx-toggle')?.addEventListener('click', event => {
+      event.stopPropagation();
+      const button = event.currentTarget;
+      const contextEl = card.querySelector('.field-ctx');
+      if (!contextEl) return;
+
+      if (endpointContextOpenKeys.has(key)) {
+        endpointContextOpenKeys.delete(key);
+        contextEl.classList.remove('expanded');
+        button.textContent = 'Expand context';
+      } else {
+        endpointContextOpenKeys.add(key);
+        contextEl.classList.add('expanded');
+        button.textContent = 'Collapse context';
+      }
+    });
 
     epListEl.appendChild(card);
   });
@@ -520,14 +529,7 @@ function renderSecrets() {
     .filter(secret => {
       if (severity && (secret.severity || '').toLowerCase() !== severity) return false;
       if (!search) return true;
-      const haystack = [
-        secret.name,
-        secret.value,
-        secret.source,
-        ...(secret.sources || []),
-        ...(secret.pageUrls || []),
-      ].join(' ').toLowerCase();
-      return haystack.includes(search);
+      return String(secret.source || '').toLowerCase().includes(search);
     })
     .sort((left, right) =>
       (SEV_RANK[left.severity] ?? 9) - (SEV_RANK[right.severity] ?? 9) ||
@@ -560,6 +562,7 @@ function renderSecrets() {
 
     const key = secret.value;
     const isOpen = expandAllSecrets || secretOpenKeys.has(key);
+    const isContextOpen = secretContextOpenKeys.has(key);
 
     const card = document.createElement('div');
     card.className = `sec-card${isOpen ? ' open' : ''}`;
@@ -582,7 +585,7 @@ function renderSecrets() {
             <button class="cp-btn" data-a="val">Copy</button>
           </div>
         </div>
-        ${secret.context ? `<div class="field"><div class="field-label">Context</div><div class="field-ctx">${renderCtx(secret.context, secret.value)}</div></div>` : ''}
+        ${secret.context ? `<div class="field"><div class="field-head"><div class="field-label">Context</div><button class="cp-btn ctx-toggle">${isContextOpen ? 'Collapse context' : 'Expand context'}</button></div><div class="field-ctx${isContextOpen ? ' expanded' : ''}">${renderCtx(secret.context, secret.value)}</div></div>` : ''}
         <div class="field">
           <div class="field-label">Source</div>
           <div class="field-row">
@@ -616,7 +619,23 @@ function renderSecrets() {
       event.stopPropagation();
       copyText(secret.value, event.currentTarget);
     });
-    card.querySelectorAll('.sec-body .cp-btn').forEach(button => {
+    card.querySelector('.ctx-toggle')?.addEventListener('click', event => {
+      event.stopPropagation();
+      const button = event.currentTarget;
+      const contextEl = card.querySelector('.field-ctx');
+      if (!contextEl) return;
+
+      if (secretContextOpenKeys.has(key)) {
+        secretContextOpenKeys.delete(key);
+        contextEl.classList.remove('expanded');
+        button.textContent = 'Expand context';
+      } else {
+        secretContextOpenKeys.add(key);
+        contextEl.classList.add('expanded');
+        button.textContent = 'Collapse context';
+      }
+    });
+    card.querySelectorAll('.sec-body .cp-btn[data-a]').forEach(button => {
       button.addEventListener('click', () => {
         if (button.dataset.a === 'val') {
           copyText(secret.value, button, 'Copy');

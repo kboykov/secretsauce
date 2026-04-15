@@ -571,6 +571,13 @@ html, body {
 
 .field { display: flex; flex-direction: column; gap: 4px; }
 
+.field-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
 .field-label {
   font-size: 9px;
   font-weight: 700;
@@ -608,9 +615,17 @@ html, body {
   border: 1px solid var(--br);
   border-radius: var(--r2);
   padding: 5px 8px;
-  word-break: break-all;
-  max-height: 60px;
+  white-space: pre-wrap;
+  word-break: break-word;
+  line-height: 1.45;
+  tab-size: 2;
+  max-height: 84px;
   overflow: hidden;
+}
+
+.field-ctx.expanded {
+  max-height: 480px;
+  overflow: auto;
 }
 
 .ctx-hi {
