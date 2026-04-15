@@ -141,6 +141,33 @@
     }
   }
 
+  function extractQueryParamNames(query = '') {
+    const names = new Set();
+    const normalized = String(query || '').trim().replace(/^\?/, '');
+    if (!normalized) return [];
+
+    normalized.split('&').forEach(pair => {
+      const [rawName] = pair.split('=');
+      if (!rawName) return;
+      try {
+        const decoded = decodeURIComponent(rawName).trim();
+        if (decoded) names.add(decoded);
+      } catch (_) {
+        const fallback = rawName.trim();
+        if (fallback) names.add(fallback);
+      }
+    });
+
+    return Array.from(names).slice(0, 20);
+  }
+
+  function endpointKey(method, path, query = '', explicitUrl = '') {
+    const normalizedMethod = String(method || 'GET').toUpperCase();
+    const url = String(explicitUrl || buildEndpointUrl(path, query) || '').trim();
+    const fallback = query ? `${path}?${query}` : path;
+    return `${normalizedMethod}:${url || fallback || ''}`;
+  }
+
   function endpointIdentity(endpoint) {
     const method = String(endpoint?.method || 'GET').toUpperCase();
     const url = endpoint?.url || buildEndpointUrl(endpoint?.path, endpoint?.query);
@@ -217,16 +244,17 @@
         if (u.hostname !== location.hostname) return;
         const path = u.pathname.replace(/\/+$/, '') || '/';
         if (isEndpointFP(path, 'dom')) return;
-        const key  = `${method}:${path}`;
+        const query = u.search.slice(1);
+        const key  = endpointKey(method, path, query, u.href);
         if (seen.has(key)) return;
         seen.add(key);
         const context  = el ? el.outerHTML.replace(/[\r\n\t]+/g, ' ').slice(0, 300) : '';
         const rawMatch = val; // raw attribute value — appears verbatim in outerHTML
         found.push({
           path,
-          query: u.search.slice(1),
+          query,
           method,
-          params: [],
+          params: extractQueryParamNames(query),
           kind: 'dom',
           source: location.href,
           context,
@@ -308,15 +336,16 @@
         if (u.hostname !== location.hostname) return;
         const path = u.pathname.replace(/\/+$/, '') || '/';
         if (isEndpointFP(path, 'inline')) return;
-        const key  = `GET:${path}`;
+        const query = u.search.slice(1);
+        const key  = endpointKey('GET', path, query, u.href);
         if (seen.has(key)) return;
         seen.add(key);
         const rawMatch = candidate; // original value before URL resolution
         found.push({
           path,
-          query: u.search.slice(1),
+          query,
           method: 'GET',
-          params: [],
+          params: extractQueryParamNames(query),
           kind: 'inline',
           source: location.href,
           context,
@@ -586,7 +615,8 @@
       while ((match = re.exec(content)) !== null) {
         const uG   = pat.urlGroup    ?? 1;
         const mG   = pat.methodGroup ?? null;
-        let   raw  = match[uG];
+        const rawMatch = match[uG];
+        let   raw  = rawMatch;
         if (!raw) continue;
 
         // For absolute URLs: filter cross-domain, then normalise to path-only
@@ -604,15 +634,18 @@
         if (isEndpointFP(path, pat.kind)) continue;
 
         const method   = mG ? match[mG].toUpperCase() : guessMethod(pat.kind, content, match.index);
-        const dedupKey = `${method}:${path}`;
+        const url = rawMatch.startsWith('http') ? rawMatch : buildEndpointUrl(path, query);
+        const dedupKey = endpointKey(method, path, query, url);
         if (seen.has(dedupKey)) continue;
         seen.add(dedupKey);
 
-        const params    = extractParams(content, match.index);
+        const params = Array.from(new Set([
+          ...extractQueryParamNames(query),
+          ...extractParams(content, match.index),
+        ])).slice(0, 20);
         const ctxStart  = Math.max(0, match.index - 80);
         const ctxEnd    = Math.min(content.length, match.index + match[0].length + 80);
         const context   = content.slice(ctxStart, ctxEnd).replace(/[\r\n\t]+/g, ' ').trim();
-        const rawMatch  = match[uG]; // the exact string that matched in source
         found.push({
           path,
           query,
@@ -622,7 +655,7 @@
           source,
           context,
           rawMatch,
-          url: rawMatch.startsWith('http') ? rawMatch : buildEndpointUrl(path, query),
+          url,
         });
 
         validHits++;

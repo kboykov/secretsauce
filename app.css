@@ -304,6 +304,7 @@ html, body {
 .panel-toolbar {
   display: flex;
   align-items: center;
+  flex-wrap: wrap;
   gap: 10px;
   padding: 14px 20px;
   border-bottom: 1px solid var(--br);
@@ -356,6 +357,30 @@ html, body {
 
 .sel:hover { border-color: var(--br2); }
 .sel option { background: var(--b2); }
+
+.panel-btn {
+  background: var(--b3);
+  border: 1px solid var(--br);
+  border-radius: var(--r);
+  color: var(--w3);
+  font-size: 12px;
+  font-family: inherit;
+  padding: 6px 10px;
+  outline: none;
+  cursor: pointer;
+  transition: background var(--transition), border-color var(--transition), color var(--transition);
+}
+
+.panel-btn:hover:not(:disabled) {
+  background: var(--b2);
+  border-color: var(--br2);
+  color: var(--w2);
+}
+
+.panel-btn:disabled {
+  opacity: .45;
+  cursor: default;
+}
 
 /* ── List container ────────────────────────────────────────────────────── */
 .list {

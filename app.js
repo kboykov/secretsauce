@@ -19,6 +19,10 @@ let lastScanTime = null;
 let pollTimer = null;
 let hostLoadToken = 0;
 let hostLog = createEmptyHostLog(currentHost);
+let expandAllEndpoints = false;
+let expandAllSecrets = false;
+let endpointOpenKeys = new Set();
+let secretOpenKeys = new Set();
 
 const $ = id => document.getElementById(id);
 const pageUrlEl = $('page-url');
@@ -40,6 +44,8 @@ const footerEl = $('footer-last-scan');
 const footerLogEl = $('footer-log-stats');
 const rescanBtn = $('btn-rescan');
 const exportBtn = $('btn-export');
+const expandEndpointsBtn = $('btn-expand-endpoints');
+const expandSecretsBtn = $('btn-expand-secrets');
 
 const METHOD_CLS = {
   GET: 'method-GET',
@@ -135,6 +141,29 @@ function endpointIdentity(endpoint) {
   const url = String(endpoint?.url || '').trim();
   const path = String(endpoint?.path || '').trim();
   return `${method}:${url || path}`;
+}
+
+function endpointQuery(endpoint) {
+  return String(endpoint?.query || (endpoint?.querySamples || [])[0] || '').trim();
+}
+
+function endpointDisplayUrl(endpoint) {
+  const explicit = String(endpoint?.url || '').trim();
+  if (explicit) {
+    try {
+      const parsed = new URL(explicit);
+      if (currentHost && parsed.hostname === currentHost) {
+        return `${parsed.pathname || '/'}${parsed.search}`;
+      }
+      return parsed.href;
+    } catch (_) {
+      return explicit;
+    }
+  }
+
+  const path = String(endpoint?.path || '/').trim() || '/';
+  const query = endpointQuery(endpoint);
+  return query ? `${path}?${query}` : path;
 }
 
 function betterSeverity(left, right) {
@@ -309,6 +338,12 @@ function updateStoredSummary() {
   }
 }
 
+function updateExpandButton(button, expandAll, count) {
+  if (!button) return;
+  button.disabled = count === 0;
+  button.textContent = expandAll && count > 0 ? 'Collapse all' : 'Expand all';
+}
+
 function updateStatusText() {
   if (isScanning) {
     spinnerEl.classList.remove('hidden');
@@ -386,6 +421,8 @@ function renderEndpoints() {
       const haystack = [
         endpoint.path,
         endpoint.url,
+        endpoint.query,
+        ...(endpoint.querySamples || []),
         endpoint.source,
         ...(endpoint.params || []),
         ...(endpoint.sources || []),
@@ -398,6 +435,7 @@ function renderEndpoints() {
   Array.from(epListEl.children).forEach(child => { if (child !== epEmptyEl) child.remove(); });
 
   if (list.length === 0) {
+    updateExpandButton(expandEndpointsBtn, expandAllEndpoints, 0);
     epEmptyEl.classList.remove('hidden');
     epEmptyEl.querySelector('.empty-title').textContent =
       allEndpoints.length === 0
@@ -411,23 +449,27 @@ function renderEndpoints() {
   }
 
   epEmptyEl.classList.add('hidden');
+  updateExpandButton(expandEndpointsBtn, expandAllEndpoints, list.length);
 
   list.forEach(endpoint => {
     const methodName = (endpoint.method || 'GET').toUpperCase();
     const cls = METHOD_CLS[methodName] || 'method-unknown';
-    const queryValue = endpoint.query || (endpoint.querySamples || [])[0] || '';
+    const queryValue = endpointQuery(endpoint);
     const hasParams = (endpoint.params || []).length > 0;
     const hasContext = !!endpoint.context;
     const sourceCount = (endpoint.sources || []).length;
     const pageCount = (endpoint.pageUrls || []).length;
-    const copyValue = endpoint.url || endpoint.path;
+    const key = endpointIdentity(endpoint);
+    const displayUrl = endpointDisplayUrl(endpoint);
+    const copyValue = endpoint.url || displayUrl;
+    const isOpen = expandAllEndpoints || endpointOpenKeys.has(key);
 
     const card = document.createElement('div');
-    card.className = 'ep-card';
+    card.className = `ep-card${isOpen ? ' open' : ''}`;
     card.innerHTML = `
       <div class="ep-row">
         <span class="badge ${esc(cls)}">${esc(methodName)}</span>
-        <span class="ep-path" title="${esc(endpoint.url || endpoint.path)}">${esc(endpoint.path)}</span>
+        <span class="ep-path" title="${esc(displayUrl)}">${esc(displayUrl)}</span>
         <button class="cp-btn ep-cp">Copy</button>
         <svg class="chevron" width="10" height="10" viewBox="0 0 10 10" fill="none">
           <path d="M3 2l4 3-4 3" stroke="currentColor" stroke-width="1.3"
@@ -445,6 +487,20 @@ function renderEndpoints() {
 
     card.querySelector('.ep-row').addEventListener('click', event => {
       if (event.target.classList.contains('ep-cp')) return;
+      if (expandAllEndpoints) {
+        expandAllEndpoints = false;
+        endpointOpenKeys = new Set(list.map(item => endpointIdentity(item)));
+        endpointOpenKeys.delete(key);
+        card.classList.remove('open');
+        updateExpandButton(expandEndpointsBtn, expandAllEndpoints, list.length);
+        return;
+      }
+
+      if (endpointOpenKeys.has(key)) {
+        endpointOpenKeys.delete(key);
+      } else {
+        endpointOpenKeys.add(key);
+      }
       card.classList.toggle('open');
     });
     card.querySelector('.ep-cp').addEventListener('click', event => {
@@ -481,6 +537,7 @@ function renderSecrets() {
   Array.from(secListEl.children).forEach(child => { if (child !== secEmptyEl) child.remove(); });
 
   if (list.length === 0) {
+    updateExpandButton(expandSecretsBtn, expandAllSecrets, 0);
     secEmptyEl.classList.remove('hidden');
     const none = allSecrets.length === 0;
     secEmptyEl.querySelector('.empty-icon').textContent = none ? '*' : '?';
@@ -494,14 +551,18 @@ function renderSecrets() {
   }
 
   secEmptyEl.classList.add('hidden');
+  updateExpandButton(expandSecretsBtn, expandAllSecrets, list.length);
 
   list.forEach(secret => {
     const severityName = (secret.severity || 'medium').toLowerCase();
     const sourceCount = (secret.sources || []).length;
     const pageCount = (secret.pageUrls || []).length;
 
+    const key = secret.value;
+    const isOpen = expandAllSecrets || secretOpenKeys.has(key);
+
     const card = document.createElement('div');
-    card.className = 'sec-card';
+    card.className = `sec-card${isOpen ? ' open' : ''}`;
     card.innerHTML = `
       <div class="sec-row">
         <span class="sev-badge sev-${esc(severityName)}">${esc(severityName)}</span>
@@ -535,6 +596,20 @@ function renderSecrets() {
 
     card.querySelector('.sec-row').addEventListener('click', event => {
       if (event.target.classList.contains('sec-cp')) return;
+      if (expandAllSecrets) {
+        expandAllSecrets = false;
+        secretOpenKeys = new Set(list.map(item => item.value));
+        secretOpenKeys.delete(key);
+        card.classList.remove('open');
+        updateExpandButton(expandSecretsBtn, expandAllSecrets, list.length);
+        return;
+      }
+
+      if (secretOpenKeys.has(key)) {
+        secretOpenKeys.delete(key);
+      } else {
+        secretOpenKeys.add(key);
+      }
       card.classList.toggle('open');
     });
     card.querySelector('.sec-cp').addEventListener('click', event => {
@@ -724,6 +799,18 @@ document.querySelectorAll('.nav-btn').forEach(button => {
 
 rescanBtn.addEventListener('click', triggerRescan);
 exportBtn.addEventListener('click', exportResults);
+expandEndpointsBtn.addEventListener('click', () => {
+  if (expandEndpointsBtn.disabled) return;
+  expandAllEndpoints = !expandAllEndpoints;
+  if (!expandAllEndpoints) endpointOpenKeys.clear();
+  renderEndpoints();
+});
+expandSecretsBtn.addEventListener('click', () => {
+  if (expandSecretsBtn.disabled) return;
+  expandAllSecrets = !expandAllSecrets;
+  if (!expandAllSecrets) secretOpenKeys.clear();
+  renderSecrets();
+});
 epSearchEl.addEventListener('input', renderEndpoints);
 epMethodEl.addEventListener('change', renderEndpoints);
 secSearchEl.addEventListener('input', renderSecrets);
