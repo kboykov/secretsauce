@@ -309,6 +309,17 @@
 
   // ─── Secret detection ─────────────────────────────────────────────────────
 
+  // Shannon entropy in bits per character
+  function shannonEntropy(str) {
+    const freq = {};
+    for (const ch of str) freq[ch] = (freq[ch] || 0) + 1;
+    const n = str.length;
+    return -Object.values(freq).reduce((sum, c) => {
+      const p = c / n;
+      return sum + p * Math.log2(p);
+    }, 0);
+  }
+
   // Values that are clearly placeholders / variable names, not real credentials
   const FP_VALUE = [
     /\$\{/, /\{\{/, /<[A-Z_]{3,}>/, /\.\.\./,
@@ -330,7 +341,10 @@
     const found = [];
     for (const pat of secretPatterns) {
       let re;
-      try { re = new RegExp(pat.regex, 'gm'); } catch (_) { continue; }
+      try {
+        const hasI = pat.regex.startsWith('(?i)');
+        re = new RegExp(hasI ? pat.regex.slice(4) : pat.regex, hasI ? 'gim' : 'gm');
+      } catch (_) { continue; }
 
       let match, hits = 0;
       while ((match = re.exec(content)) !== null && hits < 30) {
@@ -347,6 +361,71 @@
         if (!isDupSecret(s)) found.push(s);
         if (found.length >= 500) return found;
       }
+    }
+    return found;
+  }
+
+  // ─── High-entropy string detection ────────────────────────────────────────
+  // Catches API keys / tokens that don't match any named rule.
+  //
+  // Key design decisions to avoid common false positives:
+  //   • Dots excluded from charset       → kills Array.prototype.slice style matches
+  //   • All 3 char classes required      → kills all-lowercase paths/CSS/kebab identifiers
+  //     (upper + lower + digit mandatory)  e.g. fields/currency/detail-1, vis-group-gte1
+  //   • CamelCase bump filter            → kills compound names like getUserProfileDetails
+  //     (≥ 3 lower→UPPER transitions with < 3 digits = identifier, not a token)
+  //   • Min length 24                    → reduces short variable name matches
+  //
+  // Entropy thresholds (bits/char):
+  //   Pure hex   → ≥ 3.5, length ≥ 32   (max theoretical: 4.0)
+  //   Mixed      → ≥ 3.6                 (max theoretical: ~5.95 for base62)
+
+  function detectHighEntropySecrets(content, source) {
+    const found = [];
+    // Dots intentionally omitted — they appear in method chains and URLs, not tokens.
+    const re = /["'`]([A-Za-z0-9+/\-_=]{24,})["'`]/g;
+    let match;
+
+    while ((match = re.exec(content)) !== null) {
+      const value = match[1];
+
+      if (isSecretFP(value)) continue;
+      if (/^https?:|^data:|^\//.test(value)) continue;
+      // Skip anything already identified by a named rule
+      if (foundSecrets.some(x => x.value === value && x.source === source)) continue;
+
+      const isHexOnly  = /^[0-9a-fA-F]+$/.test(value);
+      const hasUpper   = /[A-Z]/.test(value);
+      const hasLower   = /[a-z]/.test(value);
+      const hasDigit   = /[0-9]/.test(value);
+      const digitCount = (value.match(/\d/g) || []).length;
+      const charClasses = (hasUpper ? 1 : 0) + (hasLower ? 1 : 0) + (hasDigit ? 1 : 0);
+
+      if (isHexOnly) {
+        if (value.length < 32) continue;        // short hex = colour / git sha
+        if (shannonEntropy(value) < 3.5) continue;
+      } else {
+        // Require all three character classes — real tokens almost always have
+        // mixed case + digits; URL paths and kebab/CSS identifiers are all-lowercase.
+        if (!hasUpper || !hasLower || !hasDigit) continue;
+
+        // CamelCase heuristic: 3+ word-boundary transitions (lower→UPPER) with
+        // fewer than 3 digits → compound identifier, not a secret token.
+        const bumps = (value.match(/[a-z][A-Z]/g) || []).length;
+        if (bumps >= 3 && digitCount < 3) continue;
+
+        if (shannonEntropy(value) < 3.6) continue;
+      }
+
+      const start   = Math.max(0, match.index - 80);
+      const end     = Math.min(content.length, match.index + match[0].length + 80);
+      const context = content.slice(start, end).replace(/[\r\n\t]+/g, ' ').trim();
+
+      found.push({
+        id: 'high-entropy', name: 'High Entropy String', severity: 'medium',
+        value, context, source, timestamp: Date.now(),
+      });
+      if (found.length >= 100) break;
     }
     return found;
   }
@@ -469,6 +548,10 @@
 
   function ingest(content, source) {
     detectSecrets(content, source).forEach(s => {
+      if (!isDupSecret(s)) foundSecrets.push(s);
+    });
+    // Run after named rules so already-identified values are skipped inside
+    detectHighEntropySecrets(content, source).forEach(s => {
       if (!isDupSecret(s)) foundSecrets.push(s);
     });
     detectEndpoints(content, source).forEach(e => {
