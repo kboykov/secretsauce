@@ -18,6 +18,7 @@
   let currentScanId    = null;
   let routeChangeTimer = null;
   let lastObservedUrl  = location.href;
+  const observedNetworkEndpoints = new Map();
 
   // ─── Endpoint detection ───────────────────────────────────────────────────
   //
@@ -214,7 +215,7 @@
 
   function resetScanState() {
     foundSecrets = [];
-    foundEndpoints = [];
+    foundEndpoints = Array.from(observedNetworkEndpoints.values()).map(endpoint => ({ ...endpoint }));
     pendingSecrets = [];
     pendingEndpoints = [];
     scanComplete = false;
@@ -380,6 +381,88 @@
 
   function loadPatterns() {
     return fetch(chrome.runtime.getURL('rules/secrets.json')).then(r => r.json());
+  }
+
+  function parseNetworkEntry(entry) {
+    if (!entry?.name) return null;
+
+    try {
+      const url = new URL(entry.name, location.href);
+      if (!isSameDomain(url.hostname)) return null;
+
+      const path = url.pathname.replace(/\/+$/, '') || '/';
+      if (isEndpointFP(path, 'network')) return null;
+
+      const query = url.search.slice(1);
+      const initiator = String(entry.initiatorType || 'resource').trim().toLowerCase();
+      const method = initiator === 'xmlhttprequest' || initiator === 'fetch' ? 'GET' : 'GET';
+
+      return {
+        path,
+        query,
+        method,
+        params: extractQueryParamNames(query),
+        kind: initiator ? `network-${initiator}` : 'network',
+        source: location.href,
+        context: `Observed in network history via ${initiator || 'resource'} timing entry`,
+        rawMatch: url.href,
+        url: url.href,
+      };
+    } catch (_) {
+      return null;
+    }
+  }
+
+  function ingestNetworkHistory(entries = [], { persistAfter = true } = {}) {
+    let changed = false;
+
+    for (const entry of entries) {
+      const endpoint = parseNetworkEntry(entry);
+      if (!endpoint) continue;
+
+      const key = endpointIdentity(endpoint);
+      if (!observedNetworkEndpoints.has(key)) {
+        observedNetworkEndpoints.set(key, endpoint);
+        if (addEndpoint(endpoint)) changed = true;
+        continue;
+      }
+
+      if (!isDupEndpoint(endpoint)) {
+        foundEndpoints.push(endpoint);
+        changed = true;
+      }
+    }
+
+    if (changed && persistAfter) {
+      void persist();
+    }
+  }
+
+  function replayPerformanceNetworkHistory() {
+    if (typeof performance?.getEntriesByType !== 'function') return;
+    try {
+      ingestNetworkHistory(performance.getEntriesByType('resource'), { persistAfter: false });
+    } catch (_) {}
+  }
+
+  function installNetworkObserver() {
+    replayPerformanceNetworkHistory();
+
+    if (typeof PerformanceObserver !== 'function') return;
+
+    try {
+      const observer = new PerformanceObserver(list => {
+        ingestNetworkHistory(list.getEntries(), { persistAfter: true });
+      });
+      observer.observe({ type: 'resource', buffered: true });
+    } catch (_) {
+      try {
+        const observer = new PerformanceObserver(list => {
+          ingestNetworkHistory(list.getEntries(), { persistAfter: true });
+        });
+        observer.observe({ entryTypes: ['resource'] });
+      } catch (_) {}
+    }
   }
 
   // ─── Source collection ────────────────────────────────────────────────────
@@ -825,8 +908,9 @@
       console.warn('[SecretSauce] init:', e);
       return;
     }
-    installNavigationObserver();
     resetScanState();
+    installNetworkObserver();
+    installNavigationObserver();
     runScan(currentScanId);
   }
 
