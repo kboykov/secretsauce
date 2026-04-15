@@ -8,11 +8,16 @@
   window.__secretSauceInitialized = true;
 
   // ─── State ────────────────────────────────────────────────────────────────
-  let secretPatterns = [];
-  let foundSecrets   = [];
-  let foundEndpoints = [];
-  let scanComplete   = false;
-  let myTabId        = null;
+  let secretPatterns   = [];
+  let foundSecrets     = [];
+  let foundEndpoints   = [];
+  let pendingSecrets   = [];
+  let pendingEndpoints = [];
+  let scanComplete     = false;
+  let myTabId          = null;
+  let currentScanId    = null;
+  let routeChangeTimer = null;
+  let lastObservedUrl  = location.href;
 
   // ─── Endpoint detection ───────────────────────────────────────────────────
   //
@@ -122,12 +127,76 @@
     return str.length > len ? str.slice(0, len) + '…' : str;
   }
 
+  function createScanId() {
+    return `${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 10)}`;
+  }
+
+  function buildEndpointUrl(path, query = '') {
+    const cleanPath = String(path || '').trim();
+    if (!cleanPath) return '';
+    try {
+      return new URL(query ? `${cleanPath}?${query}` : cleanPath, `${location.origin}/`).href;
+    } catch (_) {
+      return query ? `${cleanPath}?${query}` : cleanPath;
+    }
+  }
+
+  function endpointIdentity(endpoint) {
+    const method = String(endpoint?.method || 'GET').toUpperCase();
+    const url = endpoint?.url || buildEndpointUrl(endpoint?.path, endpoint?.query);
+    return `${method}:${url || endpoint?.path || ''}`;
+  }
+
   function isDupSecret(s) {
     return foundSecrets.some(x => x.id === s.id && x.value === s.value && x.source === s.source);
   }
 
   function isDupEndpoint(ep) {
-    return foundEndpoints.some(x => x.path === ep.path && x.method === ep.method);
+    const key = endpointIdentity(ep);
+    return foundEndpoints.some(x => endpointIdentity(x) === key);
+  }
+
+  function isPendingSecret(s) {
+    return pendingSecrets.some(x => x.id === s.id && x.value === s.value && x.source === s.source);
+  }
+
+  function isPendingEndpoint(ep) {
+    const key = endpointIdentity(ep);
+    return pendingEndpoints.some(x =>
+      endpointIdentity(x) === key &&
+      x.source === ep.source
+    );
+  }
+
+  function addSecret(secret) {
+    if (isDupSecret(secret)) return false;
+    foundSecrets.push(secret);
+    if (!isPendingSecret(secret)) pendingSecrets.push(secret);
+    return true;
+  }
+
+  function addEndpoint(endpoint) {
+    if (isDupEndpoint(endpoint)) {
+      if (!isPendingEndpoint(endpoint)) pendingEndpoints.push(endpoint);
+      return false;
+    }
+    foundEndpoints.push(endpoint);
+    if (!isPendingEndpoint(endpoint)) pendingEndpoints.push(endpoint);
+    return true;
+  }
+
+  function resetScanState() {
+    foundSecrets = [];
+    foundEndpoints = [];
+    pendingSecrets = [];
+    pendingEndpoints = [];
+    scanComplete = false;
+    currentScanId = createScanId();
+    lastObservedUrl = location.href;
+  }
+
+  function isStaleScan(scanId) {
+    return scanId !== currentScanId;
   }
 
   // ─── DOM endpoint collection ──────────────────────────────────────────────
@@ -153,7 +222,17 @@
         seen.add(key);
         const context  = el ? el.outerHTML.replace(/[\r\n\t]+/g, ' ').slice(0, 300) : '';
         const rawMatch = val; // raw attribute value — appears verbatim in outerHTML
-        found.push({ path, query: u.search.slice(1), method, params: [], kind: 'dom', source: location.href, context, rawMatch });
+        found.push({
+          path,
+          query: u.search.slice(1),
+          method,
+          params: [],
+          kind: 'dom',
+          source: location.href,
+          context,
+          rawMatch,
+          url: u.href,
+        });
       } catch (_) {}
     };
 
@@ -233,7 +312,17 @@
         if (seen.has(key)) return;
         seen.add(key);
         const rawMatch = candidate; // original value before URL resolution
-        found.push({ path, query: u.search.slice(1), method: 'GET', params: [], kind: 'inline', source: location.href, context, rawMatch });
+        found.push({
+          path,
+          query: u.search.slice(1),
+          method: 'GET',
+          params: [],
+          kind: 'inline',
+          source: location.href,
+          context,
+          rawMatch,
+          url: u.href,
+        });
       } catch (_) {}
     });
 
@@ -246,6 +335,14 @@
     return new Promise(resolve => {
       chrome.runtime.sendMessage({ type: 'GET_TAB_ID' }, resp => {
         resolve(chrome.runtime.lastError ? null : (resp?.tabId ?? null));
+      });
+    });
+  }
+
+  function runtimeMessage(message) {
+    return new Promise((resolve, reject) => {
+      chrome.runtime.sendMessage(message, response => {
+        chrome.runtime.lastError ? reject(chrome.runtime.lastError) : resolve(response);
       });
     });
   }
@@ -516,7 +613,17 @@
         const ctxEnd    = Math.min(content.length, match.index + match[0].length + 80);
         const context   = content.slice(ctxStart, ctxEnd).replace(/[\r\n\t]+/g, ' ').trim();
         const rawMatch  = match[uG]; // the exact string that matched in source
-        found.push({ path, query, method, params, kind: pat.kind, source, context, rawMatch });
+        found.push({
+          path,
+          query,
+          method,
+          params,
+          kind: pat.kind,
+          source,
+          context,
+          rawMatch,
+          url: rawMatch.startsWith('http') ? rawMatch : buildEndpointUrl(path, query),
+        });
 
         validHits++;
         if (validHits >= 200) break; // cap per-pattern per-file
@@ -530,17 +637,49 @@
 
   // ─── Persist ──────────────────────────────────────────────────────────────
 
+  async function pushPendingFindingsToLog(scanTime) {
+    if (!pendingSecrets.length && !pendingEndpoints.length) return;
+
+    const secretsToLog = pendingSecrets.slice();
+    const endpointsToLog = pendingEndpoints.slice();
+    pendingSecrets = [];
+    pendingEndpoints = [];
+
+    try {
+      await runtimeMessage({
+        type: 'LOG_FINDINGS',
+        scanId: currentScanId,
+        pageUrl: location.href,
+        scanTime,
+        secrets: secretsToLog,
+        endpoints: endpointsToLog,
+      });
+    } catch (error) {
+      console.warn('[SecretSauce] persistent log:', error);
+      secretsToLog.forEach(secret => {
+        if (!isPendingSecret(secret)) pendingSecrets.push(secret);
+      });
+      endpointsToLog.forEach(endpoint => {
+        if (!isPendingEndpoint(endpoint)) pendingEndpoints.push(endpoint);
+      });
+    }
+  }
+
   async function persist() {
-    if (!myTabId) return;
+    const scanId = currentScanId;
+    if (!myTabId || isStaleScan(scanId)) return;
+    const scanTime = Date.now();
     await chrome.storage.local.set({
       [`scan_${myTabId}`]: {
         url:       location.href,
         secrets:   foundSecrets,
         endpoints: foundEndpoints,
         complete:  scanComplete,
-        scanTime:  Date.now(),
+        scanTime,
       }
     });
+    if (isStaleScan(scanId)) return;
+    await pushPendingFindingsToLog(scanTime);
     chrome.runtime.sendMessage({ type: 'UPDATE_BADGE', secretCount: foundSecrets.length });
   }
 
@@ -548,31 +687,38 @@
 
   function ingest(content, source) {
     detectSecrets(content, source).forEach(s => {
-      if (!isDupSecret(s)) foundSecrets.push(s);
+      addSecret(s);
     });
     // Run after named rules so already-identified values are skipped inside
     detectHighEntropySecrets(content, source).forEach(s => {
-      if (!isDupSecret(s)) foundSecrets.push(s);
+      addSecret(s);
     });
     detectEndpoints(content, source).forEach(e => {
-      if (!isDupEndpoint(e)) foundEndpoints.push(e);
+      addEndpoint(e);
     });
   }
 
-  async function runScan() {
+  async function runScan(scanId = currentScanId) {
+    if (isStaleScan(scanId)) return;
     // Phase 1a: DOM elements — browser-resolved, exact hostname (fast, high signal)
     collectDomEndpoints().forEach(e => {
-      if (!isDupEndpoint(e)) foundEndpoints.push(e);
+      addEndpoint(e);
     });
+
+    if (isStaleScan(scanId)) return;
 
     // Phase 1b: Inline scripts — bookmarklet approach with new URL() resolution
     scanInlineScripts().forEach(e => {
-      if (!isDupEndpoint(e)) foundEndpoints.push(e);
+      addEndpoint(e);
     });
+
+    if (isStaleScan(scanId)) return;
 
     // Phase 1c: Full HTML + inline scripts via regex (secrets + remaining endpoint patterns)
     ingest(document.documentElement.innerHTML, location.href);
     await persist();
+
+    if (isStaleScan(scanId)) return;
 
     // Phase 2: External JS/JSON files (async, batched)
     const urls = collectSources();
@@ -581,16 +727,47 @@
       await Promise.all(
         urls.slice(i, i + BATCH).map(async url => {
           const text = await fetchText(url);
-          if (text) ingest(text, url);
+          if (!text || isStaleScan(scanId)) return;
+          ingest(text, url);
         })
       );
+      if (isStaleScan(scanId)) return;
       await persist();
+      if (isStaleScan(scanId)) return;
     }
 
+    if (isStaleScan(scanId)) return;
     scanComplete = true;
     await persist();
   }
-
+  function restartScan() {
+    resetScanState();
+    const scanId = currentScanId;
+    persist().then(() => runScan(scanId));
+  }
+  function scheduleRouteRescan() {
+    clearTimeout(routeChangeTimer);
+    routeChangeTimer = setTimeout(() => {
+      const nextUrl = location.href;
+      if (nextUrl === lastObservedUrl) return;
+      restartScan();
+    }, 120);
+  }
+  function installNavigationObserver() {
+    const wrapHistory = method => {
+      const original = history[method];
+      if (typeof original !== 'function') return;
+      history[method] = function (...args) {
+        const result = original.apply(this, args);
+        scheduleRouteRescan();
+        return result;
+      };
+    };
+    wrapHistory('pushState');
+    wrapHistory('replaceState');
+    window.addEventListener('popstate', scheduleRouteRescan);
+    window.addEventListener('hashchange', scheduleRouteRescan);
+  }
   // ─── Message handler ──────────────────────────────────────────────────────
 
   chrome.runtime.onMessage.addListener((msg, _s, sendResponse) => {
@@ -600,8 +777,7 @@
       return true;
     }
     if (msg.type === 'RESCAN') {
-      foundSecrets = []; foundEndpoints = []; scanComplete = false;
-      persist().then(() => runScan());
+      restartScan();
       sendResponse({ ok: true });
       return true;
     }
@@ -616,8 +792,12 @@
       console.warn('[SecretSauce] init:', e);
       return;
     }
-    runScan();
+    installNavigationObserver();
+    resetScanState();
+    runScan(currentScanId);
   }
 
   init();
 })();
+
+

@@ -270,6 +270,9 @@ html, body {
 /* ── Sidebar footer ────────────────────────────────────────────────────── */
 .sidebar-footer {
   padding: 0 18px;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
   font-size: 10px;
   color: var(--w4);
 }
