@@ -585,6 +585,14 @@ html, body {
   overflow: hidden;
 }
 
+.ctx-hi {
+  background: rgba(251, 191, 36, 0.18);
+  color: #fbbf24;
+  border-radius: 2px;
+  padding: 0 2px;
+  font-weight: 700;
+}
+
 .field-url {
   flex: 1;
   min-width: 0;

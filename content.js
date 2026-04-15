@@ -73,11 +73,20 @@
   ];
 
   // ─── Root-domain filter ───────────────────────────────────────────────────
-  // Only endpoints on the current site's root domain are surfaced.
-  // e.g. on api.example.com → root is example.com; filters out cdn.otherdomain.com
+  // Accept the exact hostname plus any subdomain sharing the same root domain.
+  // e.g. on app.example.com → root is example.com:
+  //   ✓ app.example.com, api.example.com, example.com
+  //   ✗ googletagmanager.com, google-analytics.com, cdn.otherdomain.com
+
+  function getRootDomain(hostname) {
+    const parts = hostname.split('.');
+    return parts.length > 2 ? parts.slice(-2).join('.') : hostname;
+  }
 
   function isSameDomain(hostname) {
-    return hostname === location.hostname;
+    if (hostname === location.hostname) return true;
+    const root = getRootDomain(location.hostname);
+    return hostname === root || hostname.endsWith('.' + root);
   }
 
   // Static asset false-positive filters (applied to path only, NOT to absolute URLs)
@@ -129,7 +138,7 @@
     const found = [];
     const seen  = new Set();
 
-    const tryAdd = (rawAttr, method) => {
+    const tryAdd = (rawAttr, method, el) => {
       if (!rawAttr) return;
       const val = rawAttr.trim();
       if (!val || val.startsWith('#') || val.startsWith('javascript:') ||
@@ -142,25 +151,27 @@
         const key  = `${method}:${path}`;
         if (seen.has(key)) return;
         seen.add(key);
-        found.push({ path, query: u.search.slice(1), method, params: [], kind: 'dom', source: location.href });
+        const context  = el ? el.outerHTML.replace(/[\r\n\t]+/g, ' ').slice(0, 300) : '';
+        const rawMatch = val; // raw attribute value — appears verbatim in outerHTML
+        found.push({ path, query: u.search.slice(1), method, params: [], kind: 'dom', source: location.href, context, rawMatch });
       } catch (_) {}
     };
 
     // Same 9 selectors the bookmarklet uses
     document.querySelectorAll('a[href]').forEach(el =>
-      tryAdd(el.getAttribute('href'), 'GET'));
+      tryAdd(el.getAttribute('href'), 'GET', el));
     document.querySelectorAll('form[action]').forEach(el =>
-      tryAdd(el.getAttribute('action') || location.pathname, (el.getAttribute('method') || 'GET').toUpperCase()));
+      tryAdd(el.getAttribute('action') || location.pathname, (el.getAttribute('method') || 'GET').toUpperCase(), el));
     document.querySelectorAll('iframe[src]').forEach(el =>
-      tryAdd(el.getAttribute('src'), 'GET'));
+      tryAdd(el.getAttribute('src'), 'GET', el));
     document.querySelectorAll('script[src]').forEach(el =>
-      tryAdd(el.getAttribute('src'), 'GET'));
+      tryAdd(el.getAttribute('src'), 'GET', el));
     document.querySelectorAll('link[href]').forEach(el =>
-      tryAdd(el.getAttribute('href'), 'GET'));
+      tryAdd(el.getAttribute('href'), 'GET', el));
     document.querySelectorAll('img[src]').forEach(el =>
-      tryAdd(el.getAttribute('src'), 'GET'));
+      tryAdd(el.getAttribute('src'), 'GET', el));
     document.querySelectorAll('source[src],video[src],audio[src]').forEach(el =>
-      tryAdd(el.getAttribute('src'), 'GET'));
+      tryAdd(el.getAttribute('src'), 'GET', el));
 
     return found;
   }
@@ -188,7 +199,7 @@
   function scanInlineScripts() {
     const found = [];
     const seen  = new Set();
-    const candidates = new Set();
+    const candidates = new Map(); // val -> context snippet
 
     document.querySelectorAll('script:not([src])').forEach(script => {
       const text = script.textContent || '';
@@ -203,12 +214,16 @@
           // Quick pre-filter identical to bookmarklet
           if (val.startsWith('data:') || val.startsWith('javascript:') ||
               val.startsWith('#') || val === '/' || /^[a-zA-Z0-9_-]+$/.test(val)) continue;
-          candidates.add(val);
+          if (!candidates.has(val)) {
+            const start = Math.max(0, match.index - 80);
+            const end   = Math.min(text.length, match.index + match[0].length + 80);
+            candidates.set(val, text.slice(start, end).replace(/[\r\n\t]+/g, ' ').trim());
+          }
         }
       });
     });
 
-    candidates.forEach(candidate => {
+    candidates.forEach((context, candidate) => {
       try {
         const u    = new URL(candidate, location.href);
         if (u.hostname !== location.hostname) return;
@@ -217,7 +232,8 @@
         const key  = `GET:${path}`;
         if (seen.has(key)) return;
         seen.add(key);
-        found.push({ path, query: u.search.slice(1), method: 'GET', params: [], kind: 'inline', source: location.href });
+        const rawMatch = candidate; // original value before URL resolution
+        found.push({ path, query: u.search.slice(1), method: 'GET', params: [], kind: 'inline', source: location.href, context, rawMatch });
       } catch (_) {}
     });
 
@@ -246,14 +262,20 @@
     const urls = new Set();
 
     document.querySelectorAll('script[src]').forEach(el => {
-      try { urls.add(new URL(el.src, location.href).href); } catch (_) {}
+      try {
+        const u = new URL(el.src, location.href);
+        if (isSameDomain(u.hostname)) urls.add(u.href);
+      } catch (_) {}
     });
 
     // JSON/JS link tags
     document.querySelectorAll('[href]').forEach(el => {
       const h = el.getAttribute('href') || '';
       if (/\.(js|json)(\?|$)/i.test(h)) {
-        try { urls.add(new URL(h, location.href).href); } catch (_) {}
+        try {
+          const u = new URL(h, location.href);
+          if (isSameDomain(u.hostname)) urls.add(u.href);
+        } catch (_) {}
       }
     });
 
@@ -265,7 +287,7 @@
     while ((m = chunkRe.exec(inline)) !== null) {
       try {
         const u = new URL(m[1], location.href);
-        if (u.origin === location.origin) urls.add(u.href);
+        if (isSameDomain(u.hostname)) urls.add(u.href);
       } catch (_) {}
     }
 
@@ -410,8 +432,12 @@
         if (seen.has(dedupKey)) continue;
         seen.add(dedupKey);
 
-        const params = extractParams(content, match.index);
-        found.push({ path, query, method, params, kind: pat.kind, source });
+        const params    = extractParams(content, match.index);
+        const ctxStart  = Math.max(0, match.index - 80);
+        const ctxEnd    = Math.min(content.length, match.index + match[0].length + 80);
+        const context   = content.slice(ctxStart, ctxEnd).replace(/[\r\n\t]+/g, ' ').trim();
+        const rawMatch  = match[uG]; // the exact string that matched in source
+        found.push({ path, query, method, params, kind: pat.kind, source, context, rawMatch });
 
         validHits++;
         if (validHits >= 200) break; // cap per-pattern per-file

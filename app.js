@@ -65,9 +65,15 @@ function copyText(text, btn, label = 'Copy') {
   }).catch(() => {});
 }
 
-function srcName(url) {
-  try { const p = new URL(url).pathname.split('/').filter(Boolean); return p[p.length - 1] || url; }
-  catch { return url; }
+
+function renderCtx(context, highlight) {
+  if (!context) return '';
+  if (!highlight) return esc(context);
+  const idx = context.indexOf(highlight);
+  if (idx === -1) return esc(context);
+  return esc(context.slice(0, idx)) +
+    `<mark class="ctx-hi">${esc(context.slice(idx, idx + highlight.length))}</mark>` +
+    esc(context.slice(idx + highlight.length));
 }
 
 // ─── Tab switching ─────────────────────────────────────────────────────────────
@@ -117,10 +123,11 @@ function renderEndpoints() {
   epEmptyEl.classList.add('hidden');
 
   list.forEach(ep => {
-    const m   = (ep.method || 'GET').toUpperCase();
-    const cls = METHOD_CLS[m] || 'method-unknown';
+    const m    = (ep.method || 'GET').toUpperCase();
+    const cls  = METHOD_CLS[m] || 'method-unknown';
     const hasP = ep.params && ep.params.length > 0;
     const hasQ = !!ep.query;
+    const hasCtx = !!ep.context;
 
     const card = document.createElement('div');
     card.className = 'ep-card';
@@ -135,12 +142,17 @@ function renderEndpoints() {
         </svg>
       </div>
       <div class="ep-body">
-        <div class="kv"><span class="kv-k">Source</span><span class="kv-v" title="${esc(ep.source)}">${esc(trunc(srcName(ep.source), 80))}</span></div>
+        <div class="kv"><span class="kv-k">Source</span><span class="kv-v" title="${esc(ep.source)}">${esc(trunc(ep.source, 200))}</span></div>
         ${hasQ ? `<div class="kv"><span class="kv-k">Query</span><span class="kv-v mono">${esc(ep.query)}</span></div>` : ''}
         ${hasP ? `
           <div class="kv"><span class="kv-k">Params</span></div>
           <div class="chips">${ep.params.map(p => `<span class="chip">${esc(p)}</span>`).join('')}</div>
         ` : ''}
+        ${hasCtx ? `
+        <div class="field">
+          <div class="field-label">Context</div>
+          <div class="field-ctx">${renderCtx(ep.context, ep.rawMatch || ep.path)}</div>
+        </div>` : ''}
       </div>`;
 
     card.querySelector('.ep-row').addEventListener('click', e => {
@@ -212,12 +224,12 @@ function renderSecrets() {
         ${s.context ? `
         <div class="field">
           <div class="field-label">Context</div>
-          <div class="field-ctx">${esc(s.context)}</div>
+          <div class="field-ctx">${renderCtx(s.context, s.value)}</div>
         </div>` : ''}
         <div class="field">
           <div class="field-label">Source</div>
           <div class="field-row">
-            <div class="field-url" title="${esc(s.source)}">${esc(trunc(srcName(s.source), 80))}</div>
+            <div class="field-url" title="${esc(s.source)}">${esc(trunc(s.source, 200))}</div>
             <button class="cp-btn" data-a="url">Copy URL</button>
           </div>
         </div>
