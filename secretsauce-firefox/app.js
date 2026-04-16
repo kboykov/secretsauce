@@ -26,6 +26,11 @@ let secretOpenKeys = new Set();
 let endpointContextOpenKeys = new Set();
 let secretContextOpenKeys = new Set();
 
+// Wayback Machine state
+let wbAllRows = [];
+let wbLoadedHost = '';
+let wbLoading = false;
+
 const $ = id => document.getElementById(id);
 const pageUrlEl = $('page-url');
 const countEpEl = $('count-endpoints');
@@ -998,6 +1003,165 @@ function exportResultsTxt() {
   anchor.remove();
 }
 
+// ── Wayback Machine ────────────────────────────────────────────────────────
+
+function formatWbTs(ts) {
+  if (!ts || ts.length < 8) return ts || '—';
+  return `${ts.slice(0, 4)}-${ts.slice(4, 6)}-${ts.slice(6, 8)}`;
+}
+
+function populateWbMimeFilter() {
+  const sel = $('wb-filter-mime');
+  const all = [...new Set(wbAllRows.map(r => r[1] || ''))].filter(Boolean).sort();
+  // text/html always first, rest alphabetical
+  const sorted = [
+    ...all.filter(m => m === 'text/html'),
+    ...all.filter(m => m !== 'text/html'),
+  ];
+  while (sel.options.length > 1) sel.remove(1);
+  sorted.forEach(mime => {
+    const opt = document.createElement('option');
+    opt.value = mime;
+    opt.textContent = mime;
+    sel.appendChild(opt);
+  });
+}
+
+function renderWayback() {
+  const emptyEl = $('wb-empty');
+  const scrollEl = $('wb-scroll');
+  const tbody = $('wb-tbody');
+  const countEl = $('wb-count');
+
+  const search = ($('wb-search').value || '').trim().toLowerCase();
+  const mime = $('wb-filter-mime').value;
+  const sortVal = ($('wb-sort-sel').value || '2-desc').split('-');
+  const sortCol = parseInt(sortVal[0], 10);
+  const sortDir = sortVal[1] === 'asc' ? 1 : -1;
+
+  let rows = wbAllRows;
+  if (mime) rows = rows.filter(r => r[1] === mime);
+  if (search) rows = rows.filter(r =>
+    (r[0] || '').toLowerCase().includes(search) ||
+    (r[1] || '').toLowerCase().includes(search)
+  );
+
+  rows = rows.slice().sort((a, b) => {
+    const av = a[sortCol] || '';
+    const bv = b[sortCol] || '';
+    if (sortCol === 4 || sortCol === 5) {
+      return sortDir * (parseInt(av, 10) - parseInt(bv, 10));
+    }
+    if (sortCol === 2 || sortCol === 3) {
+      if (av < bv) return -sortDir;
+      if (av > bv) return sortDir;
+      return 0;
+    }
+    return sortDir * av.localeCompare(bv);
+  });
+
+  countEl.textContent = rows.length ? `${rows.length.toLocaleString()} URLs` : '';
+
+  if (rows.length === 0) {
+    const none = wbAllRows.length === 0;
+    emptyEl.querySelector('.empty-icon').textContent = none ? '🕐' : '🔍';
+    emptyEl.querySelector('.empty-title').textContent = none ? 'No archive data found' : 'No URLs match the filter';
+    emptyEl.querySelector('.empty-sub').textContent = none ? `No Wayback Machine records found for ${wbLoadedHost}.` : '';
+    emptyEl.classList.remove('hidden');
+    scrollEl.classList.add('hidden');
+    return;
+  }
+
+  emptyEl.classList.add('hidden');
+  scrollEl.classList.remove('hidden');
+
+  const frag = document.createDocumentFragment();
+  rows.forEach(row => {
+    const url = row[0] || '';
+    const mimeType = row[1] || '';
+    const first = formatWbTs(row[2]);
+    const last = formatWbTs(row[3]);
+    const count = row[4] || '0';
+
+    const tr = document.createElement('tr');
+    tr.className = 'wb-row';
+    tr.innerHTML = `
+      <td class="wb-td wb-td-url"><span class="wb-url" title="${esc(url)}">${esc(url)}</span></td>
+      <td class="wb-td"><span class="wb-mime-tag">${esc(mimeType)}</span></td>
+      <td class="wb-td wb-td-date">${esc(first)}</td>
+      <td class="wb-td wb-td-date">${esc(last)}</td>
+      <td class="wb-td wb-td-num">${esc(count)}</td>
+      <td class="wb-td wb-td-act"><button class="cp-btn wb-cp">Copy</button></td>
+    `;
+    tr.querySelector('.wb-cp').addEventListener('click', function () {
+      copyText(url, this);
+    });
+    frag.appendChild(tr);
+  });
+
+  tbody.innerHTML = '';
+  tbody.appendChild(frag);
+}
+
+async function loadWaybackTab() {
+  const emptyEl = $('wb-empty');
+  const scrollEl = $('wb-scroll');
+  const countEl = $('wb-count');
+
+  if (!currentHost) {
+    wbAllRows = [];
+    wbLoadedHost = '';
+    emptyEl.querySelector('.empty-icon').textContent = '🕐';
+    emptyEl.querySelector('.empty-title').textContent = 'No host available';
+    emptyEl.querySelector('.empty-sub').textContent = 'Scan a page first to load Wayback Machine data.';
+    emptyEl.classList.remove('hidden');
+    scrollEl.classList.add('hidden');
+    countEl.textContent = '';
+    return;
+  }
+
+  if (wbLoadedHost === currentHost) {
+    renderWayback();
+    return;
+  }
+
+  if (wbLoading) return;
+  wbLoading = true;
+  wbAllRows = [];
+  wbLoadedHost = '';
+  scrollEl.classList.add('hidden');
+  countEl.textContent = '';
+
+  emptyEl.querySelector('.empty-icon').textContent = '⏳';
+  emptyEl.querySelector('.empty-title').textContent = 'Loading…';
+  emptyEl.querySelector('.empty-sub').textContent = `Fetching Wayback Machine URLs for ${currentHost}`;
+  emptyEl.classList.remove('hidden');
+
+  const host = currentHost;
+  const apiUrl = `https://web.archive.org/web/timemap/json?url=${encodeURIComponent('https://' + host)}&matchType=prefix&collapse=urlkey&output=json&fl=original%2Cmimetype%2Ctimestamp%2Cendtimestamp%2Cgroupcount%2Cuniqcount&filter=!statuscode%3A%5B45%5D..&limit=10000`;
+
+  try {
+    const res = await fetch(apiUrl);
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    const json = await res.json();
+    wbAllRows = Array.isArray(json) ? json.slice(1) : [];
+    wbLoadedHost = host;
+    $('wb-search').value = '';
+    $('wb-filter-mime').value = '';
+    $('wb-sort-sel').value = '2-desc';
+    populateWbMimeFilter();
+    renderWayback();
+  } catch (err) {
+    emptyEl.querySelector('.empty-icon').textContent = '✕';
+    emptyEl.querySelector('.empty-title').textContent = 'Failed to load data';
+    emptyEl.querySelector('.empty-sub').textContent = String(err.message || err);
+    emptyEl.classList.remove('hidden');
+    scrollEl.classList.add('hidden');
+  } finally {
+    wbLoading = false;
+  }
+}
+
 document.querySelectorAll('.nav-btn').forEach(button => {
   button.addEventListener('click', () => {
     document.querySelectorAll('.nav-btn').forEach(item => item.classList.remove('active'));
@@ -1006,7 +1170,40 @@ document.querySelectorAll('.nav-btn').forEach(button => {
     const tab = button.dataset.tab;
     $(`tab-${tab}`).classList.add('active');
     if (IFRAME_TABS.has(tab)) loadIframeTab(tab);
+    else if (tab === 'wayback') loadWaybackTab();
   });
+});
+
+$('wb-search').addEventListener('input', renderWayback);
+$('wb-filter-mime').addEventListener('change', renderWayback);
+$('wb-sort-sel').addEventListener('change', renderWayback);
+function wbVisibleUrls() {
+  const search = ($('wb-search').value || '').trim().toLowerCase();
+  const mime = $('wb-filter-mime').value;
+  let rows = wbAllRows;
+  if (mime) rows = rows.filter(r => r[1] === mime);
+  if (search) rows = rows.filter(r =>
+    (r[0] || '').toLowerCase().includes(search) ||
+    (r[1] || '').toLowerCase().includes(search)
+  );
+  return rows.map(r => r[0] || '').filter(Boolean);
+}
+
+$('btn-wb-copy-all').addEventListener('click', function () {
+  copyText(wbVisibleUrls().join('\n'), this, 'Copy all URLs');
+});
+
+$('btn-wb-export-txt').addEventListener('click', () => {
+  const urls = wbVisibleUrls().join('\n');
+  const hostname = currentHost || 'export';
+  const blob = new Blob([urls], { type: 'text/plain' });
+  const anchor = Object.assign(document.createElement('a'), {
+    href: URL.createObjectURL(blob),
+    download: `wayback-${hostname}-${Date.now()}.txt`,
+  });
+  document.body.appendChild(anchor);
+  anchor.click();
+  anchor.remove();
 });
 
 rescanBtn.addEventListener('click', triggerRescan);

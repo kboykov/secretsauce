@@ -101,6 +101,14 @@
         </svg>
         <span>Web Check</span>
       </button>
+      <button class="nav-btn" data-tab="wayback">
+        <svg width="15" height="15" viewBox="0 0 15 15" fill="none">
+          <path d="M7.5 2.5A5 5 0 1 0 12 6.5" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"/>
+          <path d="M7.5 5v3l2 1.5" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"/>
+          <path d="M10.5 1.5h3v3" stroke="currentColor" stroke-width="1.3" stroke-linecap="round" stroke-linejoin="round"/>
+        </svg>
+        <span>Wayback Machine</span>
+      </button>
     </nav>
 
     <div class="sidebar-actions">
@@ -228,6 +236,57 @@
         <div class="empty-sub">Scan a page first to run a web check.</div>
       </div>
       <iframe class="panel-iframe hidden" id="iframe-webcheck"></iframe>
+    </div>
+
+    <!-- Wayback Machine panel -->
+    <div class="panel" id="tab-wayback">
+      <div class="panel-toolbar">
+        <div class="search-box">
+          <svg width="13" height="13" viewBox="0 0 13 13" fill="none">
+            <circle cx="5.5" cy="5.5" r="4" stroke="currentColor" stroke-width="1.3"/>
+            <path d="M9 9l3 3" stroke="currentColor" stroke-width="1.3" stroke-linecap="round"/>
+          </svg>
+          <input id="wb-search" class="s-input" type="text" placeholder="Filter URLs…"/>
+        </div>
+        <select id="wb-filter-mime" class="sel">
+          <option value="">All types</option>
+        </select>
+        <select id="wb-sort-sel" class="sel">
+          <option value="2-desc">First seen (newest)</option>
+          <option value="2-asc">First seen (oldest)</option>
+          <option value="3-desc">Last seen (newest)</option>
+          <option value="3-asc">Last seen (oldest)</option>
+          <option value="0-asc">URL A–Z</option>
+          <option value="0-desc">URL Z–A</option>
+          <option value="4-desc">Snapshots (most)</option>
+          <option value="4-asc">Snapshots (fewest)</option>
+        </select>
+        <span class="wb-count" id="wb-count"></span>
+        <button class="panel-btn" id="btn-wb-copy-all">Copy all URLs</button>
+        <button class="panel-btn" id="btn-wb-export-txt">Export TXT</button>
+      </div>
+      <div class="wb-wrap">
+        <div class="empty" id="wb-empty">
+          <div class="empty-icon">&#128336;</div>
+          <div class="empty-title">No host available</div>
+          <div class="empty-sub">Scan a page first to load Wayback Machine data.</div>
+        </div>
+        <div class="wb-scroll hidden" id="wb-scroll">
+          <table class="wb-table" id="wb-table">
+            <thead>
+              <tr>
+                <th class="wb-th wb-th-url">URL</th>
+                <th class="wb-th">Type</th>
+                <th class="wb-th">First seen</th>
+                <th class="wb-th">Last seen</th>
+                <th class="wb-th wb-th-num">Snapshots</th>
+                <th class="wb-th wb-th-act"></th>
+              </tr>
+            </thead>
+            <tbody id="wb-tbody"></tbody>
+          </table>
+        </div>
+      </div>
     </div>
 
   </main>
