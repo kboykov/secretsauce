@@ -47,12 +47,12 @@ Live per-tab scan data is still stored under `scan_<tabId>` for the active page,
 ### Chrome
 1. Clone the repo
 2. Go to `chrome://extensions`, enable **Developer mode**
-3. Click **Load unpacked** and select the repo folder
+3. Click **Load unpacked** and select the repo root folder
 
 ### Firefox
 
 **Option A — Install signed release (recommended)**
-1. Download `secretsauce-1.1.0.xpi` from the [releases](../../releases) folder
+1. Download `secretsauce-1.1.0.xpi` from the [`releases/`](releases/) folder
 2. In Firefox go to `about:addons` → gear icon → **Install Add-on From File** and select the `.xpi`
 
 **Option B — Load unpacked for development**
@@ -63,7 +63,7 @@ Live per-tab scan data is still stored under `scan_<tabId>` for the active page,
 ## File Structure
 
 ```
-secretsauce-master/           Chrome extension (Manifest V3)
+/                             Chrome extension (Manifest V3)
 ├── manifest.json             Extension manifest (MV3)
 ├── background.js             Service worker - opens app tab, manages badge, merges hostname logs
 ├── content.js                Content script - DOM scan, inline scan, external JS fetch & regex
