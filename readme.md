@@ -77,7 +77,7 @@ Live per-tab scan data is stored under `scan_<tabId>` for the active page, while
 ### Firefox
 
 **Option A — Install signed release (recommended)**
-1. Download `secretsauce-1.2.0.xpi` from the [`releases/`](releases/) folder
+1. Download `secretsauce-1.3.0.xpi` from the [`releases/`](releases/) folder
 2. In Firefox go to `about:addons` → gear icon → **Install Add-on From File** and select the `.xpi`
 
 **Option B — Load unpacked for development**
@@ -107,7 +107,7 @@ secretsauce-firefox/          Firefox extension (Manifest V2)
 └── icons/                    PNG icons (16, 48, 128)
 
 releases/
-└── secretsauce-1.2.0.xpi    Signed Firefox release
+└── secretsauce-1.3.0.xpi    Signed Firefox release
 ```
 
 ## Tabs Overview
