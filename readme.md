@@ -21,7 +21,7 @@ SecretSauce is currently in an actively usable prototype state.
 - **Full-Page App** - clicking the extension icon opens a dedicated tab with a sidebar layout; no cramped popup
 - **Live Polling** - results update in real time as scripts are fetched and scanned
 - **Filter & Search** - filter endpoints by HTTP method, filter secrets by severity (critical / high / medium / low)
-- **Export** - download the current scan plus the current hostname log as a JSON file
+- **Export** - download the current scan plus the current hostname log as a JSON file, or as a plain-text file (one URL or secret value per line)
 - **Badge Counter** - secret count shown on the extension icon
 
 ## Detection Approach

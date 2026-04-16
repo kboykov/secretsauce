@@ -46,6 +46,7 @@ const footerEl = $('footer-last-scan');
 const footerLogEl = $('footer-log-stats');
 const rescanBtn = $('btn-rescan');
 const exportBtn = $('btn-export');
+const exportTxtBtn = $('btn-export-txt');
 const expandEndpointsBtn = $('btn-expand-endpoints');
 const expandSecretsBtn = $('btn-expand-secrets');
 
@@ -940,6 +941,26 @@ function exportResults() {
   anchor.remove();
 }
 
+function exportResultsTxt() {
+  const hostname = currentHost || getHostname(currentPageUrl) || 'export';
+  const lines = [];
+  for (const endpoint of allEndpoints) {
+    const url = endpoint.url || endpointDisplayUrl(endpoint);
+    if (url) lines.push(url);
+  }
+  for (const secret of allSecrets) {
+    if (secret.value) lines.push(secret.value);
+  }
+  const blob = new Blob([lines.join('\n')], { type: 'text/plain' });
+  const anchor = Object.assign(document.createElement('a'), {
+    href: URL.createObjectURL(blob),
+    download: `secretsauce-${hostname}-${Date.now()}.txt`,
+  });
+  document.body.appendChild(anchor);
+  anchor.click();
+  anchor.remove();
+}
+
 document.querySelectorAll('.nav-btn').forEach(button => {
   button.addEventListener('click', () => {
     document.querySelectorAll('.nav-btn').forEach(item => item.classList.remove('active'));
@@ -951,6 +972,7 @@ document.querySelectorAll('.nav-btn').forEach(button => {
 
 rescanBtn.addEventListener('click', triggerRescan);
 exportBtn.addEventListener('click', exportResults);
+exportTxtBtn.addEventListener('click', exportResultsTxt);
 expandEndpointsBtn.addEventListener('click', () => {
   if (expandEndpointsBtn.disabled) return;
   expandAllEndpoints = !expandAllEndpoints;
