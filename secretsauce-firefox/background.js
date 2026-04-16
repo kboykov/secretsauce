@@ -6,7 +6,7 @@ const LAST_APP_CONTEXT_KEY = 'last_app_context_v1';
 const LOG_LIMITS = {
   secrets: 4000,
   endpoints: 4000,
-  contexts: 4,
+  contexts: 1,
   sources: 24,
   pages: 40,
   params: 40,
@@ -25,9 +25,55 @@ function storageGet(key) {
 }
 
 function storageSet(values) {
-  return new Promise(resolve => {
-    chrome.storage.local.set(values, resolve);
+  return new Promise((resolve, reject) => {
+    chrome.storage.local.set(values, () => {
+      if (chrome.runtime.lastError) reject(chrome.runtime.lastError);
+      else resolve();
+    });
   });
+}
+
+function isQuotaError(err) {
+  const msg = String(err?.message || err || '');
+  return msg.includes('QuotaBytes') || msg.includes('QUOTA_BYTES') || msg.includes('quota');
+}
+
+async function pruneOldestHostLogs(keepKey) {
+  const all = await new Promise(resolve => chrome.storage.local.get(null, resolve));
+  const hostKeys = Object.keys(all)
+    .filter(k => k.startsWith(HOST_LOG_PREFIX) && k !== keepKey)
+    .map(k => ({ key: k, updatedAt: all[k]?.updatedAt || 0 }))
+    .sort((a, b) => a.updatedAt - b.updatedAt);
+  if (!hostKeys.length) return;
+  const toRemove = hostKeys.slice(0, Math.max(1, Math.floor(hostKeys.length / 2))).map(x => x.key);
+  await new Promise(resolve => chrome.storage.local.remove(toRemove, resolve));
+}
+
+async function storageSetQuotaSafe(values, hostKey) {
+  try {
+    await storageSet(values);
+  } catch (err) {
+    if (!isQuotaError(err)) throw err;
+    await pruneOldestHostLogs(hostKey);
+    try {
+      await storageSet(values);
+    } catch (err2) {
+      if (!isQuotaError(err2)) throw err2;
+      const stripped = {};
+      for (const [k, v] of Object.entries(values)) {
+        if (k.startsWith(HOST_LOG_PREFIX) && Array.isArray(v?.secrets)) {
+          stripped[k] = {
+            ...v,
+            secrets: v.secrets.map(s => ({ ...s, contexts: [] })),
+            endpoints: v.endpoints.map(e => ({ ...e, contexts: [] })),
+          };
+        } else {
+          stripped[k] = v;
+        }
+      }
+      await storageSet(stripped).catch(() => {});
+    }
+  }
 }
 
 function getHostname(url) {
@@ -312,7 +358,7 @@ async function mergeFindingsLog(message, sender) {
   }
 
   nextLog.stats = summarizeHostLog(nextLog);
-  await storageSet({
+  await storageSetQuotaSafe({
     [storageKey]: nextLog,
     [LAST_APP_CONTEXT_KEY]: {
       tabId: sender.tab?.id ?? null,
@@ -320,7 +366,7 @@ async function mergeFindingsLog(message, sender) {
       pageUrl,
       updatedAt: scanTime,
     },
-  });
+  }, storageKey);
 
   return { hostname, storageKey, stats: nextLog.stats };
 }

@@ -908,11 +908,16 @@ async function triggerRescan() {
 
 function startPolling() {
   clearInterval(pollTimer);
+  const deadline = Date.now() + 90_000;
   pollTimer = setInterval(async () => {
     await loadData();
-    if (!isScanning) {
+    if (!isScanning || Date.now() > deadline) {
       clearInterval(pollTimer);
       rescanBtn.classList.remove('spinning');
+      if (isScanning) {
+        isScanning = false;
+        updateStatusText();
+      }
     }
   }, 900);
 }

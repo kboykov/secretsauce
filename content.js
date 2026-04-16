@@ -801,15 +801,28 @@
     const scanId = currentScanId;
     if (!myTabId || isStaleScan(scanId)) return;
     const scanTime = Date.now();
-    await chrome.storage.local.set({
-      [`scan_${myTabId}`]: {
-        url:       location.href,
-        secrets:   foundSecrets,
-        endpoints: foundEndpoints,
-        complete:  scanComplete,
-        scanTime,
-      }
-    });
+    const key = `scan_${myTabId}`;
+    const payload = {
+      url:       location.href,
+      secrets:   foundSecrets,
+      endpoints: foundEndpoints,
+      complete:  scanComplete,
+      scanTime,
+    };
+    try {
+      await chrome.storage.local.set({ [key]: payload });
+    } catch (_) {
+      // Quota exceeded: retry without context strings so complete:true still lands
+      try {
+        await chrome.storage.local.set({
+          [key]: {
+            ...payload,
+            secrets:   foundSecrets.map(({ context, ...s }) => s),
+            endpoints: foundEndpoints.map(({ context, ...e }) => e),
+          },
+        });
+      } catch (_2) {}
+    }
     if (isStaleScan(scanId)) return;
     await pushPendingFindingsToLog(scanTime);
     chrome.runtime.sendMessage({ type: 'UPDATE_BADGE', secretCount: foundSecrets.length });
