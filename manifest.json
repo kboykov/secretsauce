@@ -6,10 +6,20 @@
   "author": "K. Boykov",
   "permissions": [
     "activeTab",
+    "declarativeNetRequest",
     "scripting",
     "storage",
     "tabs"
   ],
+  "declarative_net_request": {
+    "rule_resources": [
+      {
+        "id": "frame_rules",
+        "enabled": true,
+        "path": "rules/frame_rules.json"
+      }
+    ]
+  },
   "host_permissions": ["<all_urls>"],
   "action": {
     "default_icon": {

@@ -375,3 +375,27 @@ chrome.tabs.onUpdated.addListener((tabId, changeInfo) => {
 chrome.tabs.onRemoved.addListener(tabId => {
   chrome.storage.local.remove(`scan_${tabId}`);
 });
+
+// Strip X-Frame-Options and CSP so external tool iframes can load
+chrome.webRequest.onHeadersReceived.addListener(
+  function(info) {
+    var headers = info.responseHeaders;
+    for (var i = headers.length - 1; i >= 0; --i) {
+      var name = headers[i].name.toLowerCase();
+      if (name === 'x-frame-options' || name === 'content-security-policy') {
+        headers.splice(i, 1);
+      }
+    }
+    return { responseHeaders: headers };
+  },
+  {
+    urls: [
+      '*://securitytrails.com/*',
+      '*://*.securitytrails.com/*',
+      '*://web-check.xyz/*',
+      '*://*.web-check.xyz/*',
+    ],
+    types: ['sub_frame'],
+  },
+  ['blocking', 'responseHeaders']
+);
