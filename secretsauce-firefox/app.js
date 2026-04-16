@@ -941,6 +941,43 @@ function exportResults() {
   anchor.remove();
 }
 
+const IFRAME_TABS = new Set(['dns', 'history', 'subdomains', 'webcheck']);
+
+function getRootDomain(hostname) {
+  const parts = String(hostname || '').trim().split('.');
+  return parts.length > 2 ? parts.slice(-2).join('.') : hostname;
+}
+
+function getIframeUrl(tab) {
+  const host = currentHost;
+  if (!host) return null;
+  switch (tab) {
+    case 'dns':        return `https://securitytrails.com/domain/${host}/dns`;
+    case 'history':    return `https://securitytrails.com/domain/${host}/history/a`;
+    case 'subdomains': return `https://securitytrails.com/list/apex_domain/${getRootDomain(host)}`;
+    case 'webcheck':   return `https://web-check.xyz/check/${host}`;
+    default:           return null;
+  }
+}
+
+function loadIframeTab(tab) {
+  const iframe = $(`iframe-${tab}`);
+  const placeholder = $(`placeholder-${tab}`);
+  if (!iframe) return;
+  const url = getIframeUrl(tab);
+  if (!url) {
+    placeholder?.classList.remove('hidden');
+    iframe.classList.add('hidden');
+    return;
+  }
+  placeholder?.classList.add('hidden');
+  iframe.classList.remove('hidden');
+  if (iframe.dataset.loadedHost !== currentHost) {
+    iframe.src = url;
+    iframe.dataset.loadedHost = currentHost;
+  }
+}
+
 function exportResultsTxt() {
   const hostname = currentHost || getHostname(currentPageUrl) || 'export';
   const lines = [];
@@ -966,7 +1003,9 @@ document.querySelectorAll('.nav-btn').forEach(button => {
     document.querySelectorAll('.nav-btn').forEach(item => item.classList.remove('active'));
     document.querySelectorAll('.panel').forEach(panel => panel.classList.remove('active'));
     button.classList.add('active');
-    $(`tab-${button.dataset.tab}`).classList.add('active');
+    const tab = button.dataset.tab;
+    $(`tab-${tab}`).classList.add('active');
+    if (IFRAME_TABS.has(tab)) loadIframeTab(tab);
   });
 });
 
