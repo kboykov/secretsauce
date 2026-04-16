@@ -961,21 +961,21 @@ function getIframeUrl(tab) {
 }
 
 function loadIframeTab(tab) {
-  const iframe = $(`iframe-${tab}`);
-  const placeholder = $(`placeholder-${tab}`);
-  if (!iframe) return;
+  const urlEl = $(`ext-url-${tab}`);
+  const openBtn = $(`ext-open-${tab}`);
+  if (!urlEl || !openBtn) return;
   const url = getIframeUrl(tab);
   if (!url) {
-    placeholder?.classList.remove('hidden');
-    iframe.classList.add('hidden');
+    urlEl.textContent = 'Scan a page first to generate the link.';
+    urlEl.classList.add('empty');
+    openBtn.href = '#';
+    openBtn.classList.add('disabled');
     return;
   }
-  placeholder?.classList.add('hidden');
-  iframe.classList.remove('hidden');
-  if (iframe.dataset.loadedHost !== currentHost) {
-    iframe.src = url;
-    iframe.dataset.loadedHost = currentHost;
-  }
+  urlEl.textContent = url;
+  urlEl.classList.remove('empty');
+  openBtn.href = url;
+  openBtn.classList.remove('disabled');
 }
 
 function exportResultsTxt() {

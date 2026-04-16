@@ -192,42 +192,46 @@
 
     <!-- DNS Records panel -->
     <div class="panel" id="tab-dns">
-      <div class="iframe-placeholder" id="placeholder-dns">
-        <div class="empty-icon">&#128204;</div>
-        <div class="empty-title">No host available</div>
-        <div class="empty-sub">Scan a page first to view DNS records.</div>
+      <div class="ext-tab">
+        <div class="ext-tab-icon">&#128204;</div>
+        <div class="ext-tab-title">DNS Records</div>
+        <div class="ext-tab-desc">View DNS records for the current hostname via SecurityTrails.</div>
+        <div class="ext-tab-url empty" id="ext-url-dns">Scan a page first to generate the link.</div>
+        <a class="ext-tab-btn disabled" id="ext-open-dns" href="#" target="_blank" rel="noopener noreferrer">Open in New Tab</a>
       </div>
-      <iframe class="panel-iframe hidden" id="iframe-dns" sandbox="allow-scripts allow-same-origin allow-forms allow-popups"></iframe>
     </div>
 
     <!-- Historical Data panel -->
     <div class="panel" id="tab-history">
-      <div class="iframe-placeholder" id="placeholder-history">
-        <div class="empty-icon">&#128337;</div>
-        <div class="empty-title">No host available</div>
-        <div class="empty-sub">Scan a page first to view historical data.</div>
+      <div class="ext-tab">
+        <div class="ext-tab-icon">&#128337;</div>
+        <div class="ext-tab-title">Historical Data</div>
+        <div class="ext-tab-desc">View DNS history for the current hostname via SecurityTrails.</div>
+        <div class="ext-tab-url empty" id="ext-url-history">Scan a page first to generate the link.</div>
+        <a class="ext-tab-btn disabled" id="ext-open-history" href="#" target="_blank" rel="noopener noreferrer">Open in New Tab</a>
       </div>
-      <iframe class="panel-iframe hidden" id="iframe-history" sandbox="allow-scripts allow-same-origin allow-forms allow-popups"></iframe>
     </div>
 
     <!-- Subdomains panel -->
     <div class="panel" id="tab-subdomains">
-      <div class="iframe-placeholder" id="placeholder-subdomains">
-        <div class="empty-icon">&#127760;</div>
-        <div class="empty-title">No host available</div>
-        <div class="empty-sub">Scan a page first to view subdomains.</div>
+      <div class="ext-tab">
+        <div class="ext-tab-icon">&#127760;</div>
+        <div class="ext-tab-title">Subdomains</div>
+        <div class="ext-tab-desc">Enumerate subdomains for the root domain via SecurityTrails.</div>
+        <div class="ext-tab-url empty" id="ext-url-subdomains">Scan a page first to generate the link.</div>
+        <a class="ext-tab-btn disabled" id="ext-open-subdomains" href="#" target="_blank" rel="noopener noreferrer">Open in New Tab</a>
       </div>
-      <iframe class="panel-iframe hidden" id="iframe-subdomains" sandbox="allow-scripts allow-same-origin allow-forms allow-popups"></iframe>
     </div>
 
     <!-- Web Check panel -->
     <div class="panel" id="tab-webcheck">
-      <div class="iframe-placeholder" id="placeholder-webcheck">
-        <div class="empty-icon">&#128274;</div>
-        <div class="empty-title">No host available</div>
-        <div class="empty-sub">Scan a page first to run a web check.</div>
+      <div class="ext-tab">
+        <div class="ext-tab-icon">&#128274;</div>
+        <div class="ext-tab-title">Web Check</div>
+        <div class="ext-tab-desc">Run a comprehensive web check for the current hostname via web-check.xyz.</div>
+        <div class="ext-tab-url empty" id="ext-url-webcheck">Scan a page first to generate the link.</div>
+        <a class="ext-tab-btn disabled" id="ext-open-webcheck" href="#" target="_blank" rel="noopener noreferrer">Open in New Tab</a>
       </div>
-      <iframe class="panel-iframe hidden" id="iframe-webcheck" sandbox="allow-scripts allow-same-origin allow-forms allow-popups"></iframe>
     </div>
 
   </main>
