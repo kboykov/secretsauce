@@ -1,8 +1,8 @@
 {
   "manifest_version": 2,
   "name": "SecretSauce",
-  "version": "1.3.0",
-  "description": "Detect secrets, API keys, and endpoints in web pages automatically.",
+  "version": "1.4.0",
+  "description": "Detect exposed secrets, API keys and endpoints on any page, with built-in recon tabs.",
   "author": "K. Boykov",
   "browser_specific_settings": {
     "gecko": {
@@ -31,25 +31,29 @@
       "48": "icons/icon48.png",
       "128": "icons/icon128.png"
     },
-    "default_title": "SecretSauce"
+    "default_title": "SecretSauce — open findings"
+  },
+  "icons": {
+    "16": "icons/icon16.png",
+    "48": "icons/icon48.png",
+    "128": "icons/icon128.png"
+  },
+  "commands": {
+    "open-secretsauce": {
+      "suggested_key": { "default": "Alt+Shift+S" },
+      "description": "Open SecretSauce for the current tab"
+    }
   },
   "content_scripts": [
     {
       "matches": ["<all_urls>"],
-      "js": ["content.js"],
+      "js": ["shared.js", "detect.js", "content.js"],
       "run_at": "document_idle",
       "all_frames": false
     }
   ],
   "background": {
-    "scripts": ["background.js"],
+    "scripts": ["shared.js", "background.js"],
     "persistent": false
-  },
-  "web_accessible_resources": [
-    "rules/secrets.json",
-    "icons/*",
-    "app.html",
-    "app.css",
-    "app.js"
-  ]
+  }
 }

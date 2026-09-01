@@ -1,0 +1,373 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="dark">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>SecretSauce</title>
+  <link rel="icon" href="icons/icon48.png"/>
+  <link rel="stylesheet" href="app.css"/>
+</head>
+<body>
+
+<div class="app" id="app" data-drawer="open">
+
+  <!-- ── Sidebar ─────────────────────────────────────────────────────────── -->
+  <aside class="sidebar" id="sidebar">
+
+    <!-- Rail: sections + actions, always present -->
+    <nav class="rail" aria-label="Sections and actions">
+      <div class="rail-brand" title="SecretSauce">
+        <svg width="30" height="30" viewBox="0 0 34 34" fill="none" aria-hidden="true">
+          <defs>
+            <linearGradient id="sauce" x1="4" y1="4" x2="30" y2="30" gradientUnits="userSpaceOnUse">
+              <stop offset="0" stop-color="#ff5d5d"/><stop offset="1" stop-color="#ff9f43"/>
+            </linearGradient>
+          </defs>
+          <rect x="2" y="2" width="30" height="30" rx="9" fill="url(#sauce)"/>
+          <path d="M11 22.5c0-3.6 2.7-6 6-6s6 2.4 6 6" stroke="#fff" stroke-width="2.4" stroke-linecap="round"/>
+          <path d="M17 10.5v5" stroke="#fff" stroke-width="2.4" stroke-linecap="round"/>
+          <circle cx="17" cy="9.5" r="1.9" fill="#fff"/>
+          <path d="M10 25h14" stroke="#fff" stroke-width="2.4" stroke-linecap="round" opacity=".85"/>
+        </svg>
+      </div>
+
+      <div class="rail-group" role="group" aria-label="Findings">
+        <button class="nav-btn active" data-tab="endpoints" type="button" title="Endpoints (Alt+1)" aria-label="Endpoints">
+          <svg viewBox="0 0 16 16" width="17" height="17"><circle cx="3.5" cy="12.5" r="1.5"/><circle cx="12.5" cy="3.5" r="1.5"/><path d="M5 12.5h4a3 3 0 0 0 0-6H7a3 3 0 0 1 0-6h4"/></svg>
+          <span class="rail-badge" id="nav-badge-endpoints">0</span>
+        </button>
+        <button class="nav-btn" data-tab="secrets" type="button" title="Secrets (Alt+2)" aria-label="Secrets">
+          <svg viewBox="0 0 16 16" width="17" height="17"><circle cx="5.5" cy="10.5" r="3"/><path d="M7.6 8.4 13.5 2.5M11 5l2 2M9.5 6.5 11.5 8.5"/></svg>
+          <span class="rail-badge sev" id="nav-badge-secrets" data-level="none">0</span>
+        </button>
+      </div>
+
+      <div class="rail-sep" role="presentation"></div>
+
+      <div class="rail-group" role="group" aria-label="Recon">
+        <button class="nav-btn" data-tab="dns" type="button" title="DNS records (Alt+3)" aria-label="DNS records">
+          <svg viewBox="0 0 16 16" width="17" height="17"><circle cx="8" cy="8" r="6"/><path d="M2 8h12M8 2c2 2 2 10 0 12M8 2c-2 2-2 10 0 12"/></svg>
+        </button>
+        <button class="nav-btn" data-tab="history" type="button" title="Historical data (Alt+4)" aria-label="Historical data">
+          <svg viewBox="0 0 16 16" width="17" height="17"><circle cx="8" cy="8" r="6"/><path d="M8 4.5V8l2.5 1.5"/></svg>
+        </button>
+        <button class="nav-btn" data-tab="subdomains" type="button" title="Subdomains (Alt+5)" aria-label="Subdomains">
+          <svg viewBox="0 0 16 16" width="17" height="17"><circle cx="8" cy="3" r="1.6"/><circle cx="3" cy="13" r="1.6"/><circle cx="13" cy="13" r="1.6"/><path d="M8 4.6V8M8 8 3.9 11.6M8 8l4.1 3.6"/></svg>
+        </button>
+        <button class="nav-btn" data-tab="webcheck" type="button" title="Web check (Alt+6)" aria-label="Web check">
+          <svg viewBox="0 0 16 16" width="17" height="17"><path d="M8 1.8 2.8 4v3.7c0 3 2.2 5.4 5.2 6.5 3-1.1 5.2-3.5 5.2-6.5V4L8 1.8Z"/><path d="m5.8 8 1.6 1.6 3-3.2"/></svg>
+        </button>
+        <button class="nav-btn" data-tab="wayback" type="button" title="Wayback Machine (Alt+7)" aria-label="Wayback Machine">
+          <svg viewBox="0 0 16 16" width="17" height="17"><path d="M8 2.5A5.5 5.5 0 1 0 13 6.4"/><path d="M8 5v3l2.2 1.6"/><path d="M11 1.5h3v3"/></svg>
+        </button>
+      </div>
+
+      <div class="rail-sep" role="presentation"></div>
+
+      <div class="rail-group" role="group" aria-label="Manage">
+        <button class="nav-btn" data-tab="hosts" type="button" title="Hosts (Alt+8)" aria-label="Hosts">
+          <svg viewBox="0 0 16 16" width="17" height="17"><rect x="2" y="2.5" width="12" height="4.5" rx="1.2"/><rect x="2" y="9" width="12" height="4.5" rx="1.2"/><circle cx="11.5" cy="4.75" r=".8" fill="currentColor"/><circle cx="11.5" cy="11.25" r=".8" fill="currentColor"/></svg>
+          <span class="rail-badge" id="nav-badge-hosts">0</span>
+        </button>
+        <button class="nav-btn" data-tab="settings" type="button" title="Settings (Alt+9)" aria-label="Settings">
+          <svg viewBox="0 0 16 16" width="17" height="17"><circle cx="8" cy="8" r="2.2"/><path d="M8 1.8v1.7M8 12.5v1.7M1.8 8h1.7M12.5 8h1.7M3.6 3.6l1.2 1.2M11.2 11.2l1.2 1.2M3.6 12.4l1.2-1.2M11.2 4.8l1.2-1.2"/></svg>
+        </button>
+      </div>
+
+      <div class="rail-sep" role="presentation"></div>
+
+      <div class="rail-foot" role="group" aria-label="Actions">
+        <button class="rail-btn" id="btn-drawer" type="button" aria-pressed="true" aria-controls="drawer" title="Hide the target panel (B)" aria-label="Hide the target panel">
+          <svg class="ico-open" viewBox="0 0 16 16" width="17" height="17"><rect x="2" y="3" width="12" height="10" rx="1.5"/><path d="M6 3v10"/><path d="m10.5 6.5-1.5 1.5 1.5 1.5"/></svg>
+          <svg class="ico-closed" viewBox="0 0 16 16" width="17" height="17"><rect x="2" y="3" width="12" height="10" rx="1.5"/><path d="M6 3v10"/><path d="m9 6.5 1.5 1.5L9 9.5"/></svg>
+        </button>
+        <button class="rail-btn" id="btn-theme" type="button" title="Toggle theme" aria-label="Toggle theme"></button>
+        <div class="menu-wrap">
+          <button class="rail-btn" id="btn-export" type="button" data-menu="menu-export" title="Export findings" aria-label="Export findings" aria-haspopup="menu">
+            <svg viewBox="0 0 16 16" width="17" height="17"><path d="M8 2.5v8M5 7.5l3 3 3-3"/><path d="M3 13.5h10"/></svg>
+          </button>
+          <div class="menu right" id="menu-export" role="menu">
+            <button type="button" role="menuitem" data-export="json"><b>JSON</b><span>Full report: live scan, host log, merged findings</span></button>
+            <button type="button" role="menuitem" data-export="csv-endpoints"><b>CSV · endpoints</b><span>Method, URL, params, sources, timestamps</span></button>
+            <button type="button" role="menuitem" data-export="csv-secrets"><b>CSV · secrets</b><span>Severity, rule, value, sources, timestamps</span></button>
+            <button type="button" role="menuitem" data-export="txt-urls"><b>TXT · URLs</b><span>One endpoint URL per line (wordlist-ready)</span></button>
+            <button type="button" role="menuitem" data-export="txt-secrets"><b>TXT · secrets</b><span>One secret value per line</span></button>
+            <button type="button" role="menuitem" data-export="txt-all"><b>TXT · everything</b><span>URLs followed by secret values</span></button>
+          </div>
+        </div>
+        <button class="rail-btn primary" id="btn-rescan" type="button" title="Rescan the page (R)" aria-label="Rescan the page">
+          <svg viewBox="0 0 16 16" width="17" height="17"><path d="M13 8a5 5 0 1 1-1.5-3.6"/><path d="M13 2.5v3.3H9.7"/></svg>
+        </button>
+      </div>
+    </nav>
+
+    <!-- Drawer: everything about the current target -->
+    <section class="drawer" id="drawer" aria-label="Target">
+      <header class="drawer-head">
+        <div class="target-fav" id="target-fav" aria-hidden="true">?</div>
+        <div class="target-text">
+          <div class="target-host mono" id="target-host">No host</div>
+          <div class="target-url" id="target-url">No page in context</div>
+        </div>
+      </header>
+
+      <div class="status" id="status-pill" data-kind="idle" role="status" aria-describedby="status-detail">
+        <span class="status-dot" id="status-dot"></span>
+        <span class="sr-only" id="status-detail"></span>
+        <span class="status-text" id="status-text">Idle</span>
+        <span class="status-sub" id="status-sub"></span>
+      </div>
+
+      <h2 class="drawer-label">Severity</h2>
+      <ol class="ledger" id="sev-ledger" aria-label="Secrets by severity">
+        <li class="ledger-row" data-sev="critical"><span class="ledger-name">Critical</span><span class="ledger-bar" aria-hidden="true"><i id="bar-critical"></i></span><span class="ledger-n" id="led-critical">0</span></li>
+        <li class="ledger-row" data-sev="high"><span class="ledger-name">High</span><span class="ledger-bar" aria-hidden="true"><i id="bar-high"></i></span><span class="ledger-n" id="led-high">0</span></li>
+        <li class="ledger-row" data-sev="medium"><span class="ledger-name">Medium</span><span class="ledger-bar" aria-hidden="true"><i id="bar-medium"></i></span><span class="ledger-n" id="led-medium">0</span></li>
+        <li class="ledger-row" data-sev="low"><span class="ledger-name">Low</span><span class="ledger-bar" aria-hidden="true"><i id="bar-low"></i></span><span class="ledger-n" id="led-low">0</span></li>
+      </ol>
+
+      <h2 class="drawer-label">Coverage</h2>
+      <dl class="coverage">
+        <div><dt>Endpoints</dt><dd id="stat-endpoints">0</dd></div>
+        <div><dt>Secrets</dt><dd id="stat-secrets">0</dd></div>
+        <div><dt>Critical + high</dt><dd id="stat-critical">0</dd></div>
+        <div><dt>Pages logged</dt><dd id="stat-pages">0</dd></div>
+        <div><dt>Scripts scanned</dt><dd id="stat-scripts">0</dd></div>
+        <div><dt>Stored hosts</dt><dd id="stat-hosts">0</dd></div>
+      </dl>
+
+      <p class="drawer-foot"><span class="brand-word">SecretSauce</span> <span id="brand-version"></span></p>
+    </section>
+  </aside>
+
+  <!-- ── Main ────────────────────────────────────────────────────────────── -->
+  <main class="main">
+    <h1 class="sr-only">SecretSauce findings</h1>
+
+    <!-- Endpoints -->
+    <section class="panel active" id="panel-endpoints" aria-labelledby="h-endpoints">
+      <header class="panel-head">
+        <div class="panel-title">
+          <h2 id="h-endpoints">Endpoints</h2>
+          <span class="panel-count" id="ep-count"></span>
+        </div>
+        <div class="toolbar">
+          <label class="search">
+            <svg viewBox="0 0 16 16" width="14" height="14"><circle cx="7" cy="7" r="4.5"/><path d="M10.5 10.5 14 14"/></svg>
+            <input id="ep-search" class="s-input" type="search" placeholder="Filter endpoints: path, param, source ( / )" autocomplete="off" spellcheck="false"/>
+          </label>
+          <select id="ep-kind" class="sel" title="Detection source">
+            <option value="">All sources</option>
+            <option value="code">API calls in code</option>
+            <option value="network">Observed network</option>
+            <option value="dom">DOM attributes</option>
+            <option value="static">String literals</option>
+          </select>
+          <select id="ep-sort" class="sel" title="Sort">
+            <option value="recent">Most recent</option>
+            <option value="path">Path A–Z</option>
+            <option value="method">By method</option>
+            <option value="seen">Most seen</option>
+          </select>
+          <button class="tbtn toggle" id="ep-show-ignored" type="button" aria-pressed="false" title="Show dismissed endpoints"><svg viewBox="0 0 16 16" width="13" height="13"><circle cx="8" cy="8" r="6"/><path d="m4 4 8 8"/></svg><span>Dismissed</span><b>0</b></button>
+          <button class="tbtn" id="btn-ep-copy-all" type="button" title="Copy all visible URLs"><svg viewBox="0 0 16 16" width="13" height="13"><rect x="5.5" y="5.5" width="8" height="8" rx="1.5"/><path d="M10.5 5.5V3.5a1 1 0 0 0-1-1h-6a1 1 0 0 0-1 1v6a1 1 0 0 0 1 1h2"/></svg><span>Copy URLs</span></button>
+          <button class="tbtn" id="btn-ep-expand" type="button"><span>Expand all</span></button>
+        </div>
+        <div class="chips-row" id="ep-method-chips"></div>
+      </header>
+      <div class="list" id="ep-list">
+        <div class="empty" id="ep-empty"></div>
+      </div>
+    </section>
+
+    <!-- Secrets -->
+    <section class="panel" id="panel-secrets" aria-labelledby="h-secrets">
+      <header class="panel-head">
+        <div class="panel-title">
+          <h2 id="h-secrets">Secrets</h2>
+          <span class="panel-count" id="sec-count"></span>
+        </div>
+        <div class="toolbar">
+          <label class="search">
+            <svg viewBox="0 0 16 16" width="14" height="14"><circle cx="7" cy="7" r="4.5"/><path d="M10.5 10.5 14 14"/></svg>
+            <input id="sec-search" class="s-input" type="search" placeholder="Filter secrets: rule, value, source ( / )" autocomplete="off" spellcheck="false"/>
+          </label>
+          <select id="sec-rule" class="sel" title="Rule">
+            <option value="">All rules</option>
+          </select>
+          <select id="sec-sort" class="sel" title="Sort">
+            <option value="severity">By severity</option>
+            <option value="recent">Most recent</option>
+            <option value="name">Rule name</option>
+          </select>
+          <button class="tbtn toggle" id="sec-show-ignored" type="button" aria-pressed="false" title="Show dismissed secrets (false positives)"><svg viewBox="0 0 16 16" width="13" height="13"><circle cx="8" cy="8" r="6"/><path d="m4 4 8 8"/></svg><span>Dismissed</span><b>0</b></button>
+          <button class="ibtn toggle" id="btn-sec-mask" type="button" title="Mask values" aria-label="Mask secret values" aria-pressed="false"></button>
+          <button class="tbtn" id="btn-sec-copy-all" type="button" title="Copy all visible values"><svg viewBox="0 0 16 16" width="13" height="13"><rect x="5.5" y="5.5" width="8" height="8" rx="1.5"/><path d="M10.5 5.5V3.5a1 1 0 0 0-1-1h-6a1 1 0 0 0-1 1v6a1 1 0 0 0 1 1h2"/></svg><span>Copy values</span></button>
+          <button class="tbtn" id="btn-sec-expand" type="button"><span>Expand all</span></button>
+        </div>
+        <div class="chips-row" id="sec-sev-chips"></div>
+      </header>
+      <div class="list" id="sec-list">
+        <div class="empty" id="sec-empty"></div>
+      </div>
+    </section>
+
+    <!-- Embedded recon tools -->
+    <section class="panel" id="panel-dns">
+      <div class="recon-bar"><span class="label">SecurityTrails · DNS</span><a class="recon-link mono" id="recon-link-dns" target="_blank" rel="noopener noreferrer">No host in context</a><button class="ibtn" id="btn-recon-reload-dns" type="button" title="Reload" aria-label="Reload embedded page"><svg viewBox="0 0 16 16" width="13" height="13"><path d="M13 8a5 5 0 1 1-1.5-3.6"/><path d="M13 2.5v3.3H9.7"/></svg></button></div>
+      <div class="empty tall" id="placeholder-dns"></div>
+      <iframe class="frame hidden" id="iframe-dns" title="DNS records" referrerpolicy="no-referrer"></iframe>
+    </section>
+    <section class="panel" id="panel-history">
+      <div class="recon-bar"><span class="label">SecurityTrails · A-record history</span><a class="recon-link mono" id="recon-link-history" target="_blank" rel="noopener noreferrer">No host in context</a><button class="ibtn" id="btn-recon-reload-history" type="button" title="Reload" aria-label="Reload embedded page"><svg viewBox="0 0 16 16" width="13" height="13"><path d="M13 8a5 5 0 1 1-1.5-3.6"/><path d="M13 2.5v3.3H9.7"/></svg></button></div>
+      <div class="empty tall" id="placeholder-history"></div>
+      <iframe class="frame hidden" id="iframe-history" title="Historical data" referrerpolicy="no-referrer"></iframe>
+    </section>
+    <section class="panel" id="panel-subdomains">
+      <div class="recon-bar"><span class="label">SecurityTrails · Subdomains</span><a class="recon-link mono" id="recon-link-subdomains" target="_blank" rel="noopener noreferrer">No host in context</a><button class="ibtn" id="btn-recon-reload-subdomains" type="button" title="Reload" aria-label="Reload embedded page"><svg viewBox="0 0 16 16" width="13" height="13"><path d="M13 8a5 5 0 1 1-1.5-3.6"/><path d="M13 2.5v3.3H9.7"/></svg></button></div>
+      <div class="empty tall" id="placeholder-subdomains"></div>
+      <iframe class="frame hidden" id="iframe-subdomains" title="Subdomains" referrerpolicy="no-referrer"></iframe>
+    </section>
+    <section class="panel" id="panel-webcheck">
+      <div class="recon-bar"><span class="label">web-check.xyz</span><a class="recon-link mono" id="recon-link-webcheck" target="_blank" rel="noopener noreferrer">No host in context</a><button class="ibtn" id="btn-recon-reload-webcheck" type="button" title="Reload" aria-label="Reload embedded page"><svg viewBox="0 0 16 16" width="13" height="13"><path d="M13 8a5 5 0 1 1-1.5-3.6"/><path d="M13 2.5v3.3H9.7"/></svg></button></div>
+      <div class="empty tall" id="placeholder-webcheck"></div>
+      <iframe class="frame hidden" id="iframe-webcheck" title="Web check" referrerpolicy="no-referrer"></iframe>
+    </section>
+
+    <!-- Wayback Machine -->
+    <section class="panel" id="panel-wayback" aria-labelledby="h-wayback">
+      <header class="panel-head">
+        <div class="panel-title">
+          <h2 id="h-wayback">Wayback Machine</h2>
+          <span class="panel-count" id="wb-count"></span>
+        </div>
+        <div class="toolbar">
+          <label class="search">
+            <svg viewBox="0 0 16 16" width="14" height="14"><circle cx="7" cy="7" r="4.5"/><path d="M10.5 10.5 14 14"/></svg>
+            <input id="wb-search" class="s-input" type="search" placeholder="Filter archived URLs (prefix a word with - to exclude it)" autocomplete="off" spellcheck="false"/>
+          </label>
+          <select id="wb-filter-mime" class="sel" title="MIME type"><option value="">All types</option></select>
+          <select id="wb-sort" class="sel" title="Sort">
+            <option value="2-desc">First seen (newest)</option>
+            <option value="2-asc">First seen (oldest)</option>
+            <option value="3-desc">Last seen (newest)</option>
+            <option value="3-asc">Last seen (oldest)</option>
+            <option value="0-asc">URL A–Z</option>
+            <option value="0-desc">URL Z–A</option>
+            <option value="4-desc">Snapshots (most)</option>
+            <option value="4-asc">Snapshots (fewest)</option>
+          </select>
+          <button class="tbtn toggle" id="wb-interesting" type="button" aria-pressed="false" title="Only URLs that look interesting: configs, backups, APIs, admin paths…"><svg viewBox="0 0 16 16" width="13" height="13"><path d="M9 1.5 3.5 9h4L7 14.5 12.5 7h-4L9 1.5Z"/></svg><span>Interesting</span></button>
+          <button class="tbtn" id="btn-wb-copy" type="button"><svg viewBox="0 0 16 16" width="13" height="13"><rect x="5.5" y="5.5" width="8" height="8" rx="1.5"/><path d="M10.5 5.5V3.5a1 1 0 0 0-1-1h-6a1 1 0 0 0-1 1v6a1 1 0 0 0 1 1h2"/></svg><span>Copy URLs</span></button>
+          <button class="tbtn" id="btn-wb-export" type="button"><svg viewBox="0 0 16 16" width="13" height="13"><path d="M8 2.5v8M5 7.5l3 3 3-3"/><path d="M3 13.5h10"/></svg><span>Export TXT</span></button>
+          <button class="ibtn" id="btn-wb-reload" type="button" title="Refetch from archive.org" aria-label="Refetch from archive.org"><svg viewBox="0 0 16 16" width="13" height="13"><path d="M13 8a5 5 0 1 1-1.5-3.6"/><path d="M13 2.5v3.3H9.7"/></svg></button>
+        </div>
+      </header>
+      <div class="table-wrap">
+        <div class="empty" id="wb-empty"></div>
+        <div class="scroll hidden" id="wb-scroll">
+          <table class="table wb">
+            <thead><tr><th class="wb-url">URL</th><th>Type</th><th>First seen</th><th>Last seen</th><th class="num">Snapshots</th><th class="act"></th></tr></thead>
+            <tbody id="wb-tbody"></tbody>
+          </table>
+        </div>
+      </div>
+    </section>
+
+    <!-- Hosts -->
+    <section class="panel" id="panel-hosts" aria-labelledby="h-hosts">
+      <header class="panel-head">
+        <div class="panel-title">
+          <h2 id="h-hosts">Hosts</h2>
+          <span class="panel-count" id="hosts-summary"></span>
+        </div>
+        <div class="toolbar">
+          <label class="search">
+            <svg viewBox="0 0 16 16" width="14" height="14"><circle cx="7" cy="7" r="4.5"/><path d="M10.5 10.5 14 14"/></svg>
+            <input id="hosts-search" class="s-input" type="search" placeholder="Filter hosts" autocomplete="off" spellcheck="false"/>
+          </label>
+          <button class="tbtn" id="btn-hosts-refresh" type="button"><svg viewBox="0 0 16 16" width="13" height="13"><path d="M13 8a5 5 0 1 1-1.5-3.6"/><path d="M13 2.5v3.3H9.7"/></svg><span>Refresh</span></button>
+        </div>
+      </header>
+      <div class="table-wrap">
+        <div class="empty" id="hosts-empty"></div>
+        <div class="scroll" id="hosts-table"></div>
+      </div>
+    </section>
+
+    <!-- Settings -->
+    <section class="panel" id="panel-settings" aria-labelledby="h-settings">
+      <header class="panel-head">
+        <div class="panel-title">
+          <h2 id="h-settings">Settings</h2>
+          <span class="panel-count" id="about-version"></span>
+        </div>
+      </header>
+      <div class="scroll settings">
+        <div class="settings-grid">
+
+          <section class="card static">
+            <h3>Scanning</h3>
+            <label class="setting"><input type="checkbox" data-setting="fetchExternalScripts"/><span class="switch"></span><span><b>Fetch and scan external scripts</b><small>Download same-site JS/JSON bundles referenced by the page and scan them too.</small></span></label>
+            <label class="setting"><input type="checkbox" data-setting="includeSubdomains"/><span class="switch"></span><span><b>Include sibling subdomains</b><small>Treat api.example.com as in-scope while scanning www.example.com.</small></span></label>
+            <label class="setting"><input type="checkbox" data-setting="highEntropy"/><span class="switch"></span><span><b>High-entropy heuristic</b><small>Flag random-looking strings that no named rule recognises (medium severity).</small></span></label>
+            <label class="setting"><input type="checkbox" data-setting="autoRescanOnRoute"/><span class="switch"></span><span><b>Rescan on SPA route changes</b><small>Re-run the scan when a single-page app changes its URL.</small></span></label>
+            <label class="setting row"><span><b>Max external scripts per page</b><small>Upper bound on bundles fetched in one scan.</small></span><input type="number" min="0" max="1000" step="10" class="input num" data-setting="maxExternalScripts"/></label>
+          </section>
+
+          <section class="card static">
+            <h3>Scope</h3>
+            <label class="setting col"><span><b>Excluded hosts</b><small>One per line. Use <code>*.example.com</code> for a whole domain. These pages are never scanned, which suits banking or internal tools.</small></span><textarea class="input" rows="5" data-setting="excludedHosts" placeholder="bank.example&#10;*.internal.corp"></textarea></label>
+          </section>
+
+          <section class="card static">
+            <h3>Appearance</h3>
+            <label class="setting row"><span><b>Theme</b><small>System follows your OS preference.</small></span>
+              <select class="sel" data-setting="theme"><option value="system">System</option><option value="dark">Dark</option><option value="light">Light</option></select>
+            </label>
+            <label class="setting"><input type="checkbox" data-setting="badgeSeverityColor"/><span class="switch"></span><span><b>Colour toolbar badge by severity</b><small>Red for critical/high, amber for medium, green for low-only findings.</small></span></label>
+          </section>
+
+          <section class="card static">
+            <h3>Data</h3>
+            <p class="muted" id="storage-usage">Calculating storage use</p>
+            <div class="btn-row">
+              <button class="btn" id="btn-clear-host-data" type="button">Clear current host</button>
+              <button class="btn danger" id="btn-clear-all-data" type="button">Delete all stored findings</button>
+            </div>
+            <p class="muted small">Findings never leave your browser. Recon tabs load third-party sites (SecurityTrails, web-check.xyz, archive.org) with the target hostname in the URL.</p>
+          </section>
+
+          <section class="card static wide">
+            <div class="card-head-row">
+              <h3>Detection rules</h3>
+              <span class="muted" id="rules-summary"></span>
+              <label class="search compact">
+                <svg viewBox="0 0 16 16" width="13" height="13"><circle cx="7" cy="7" r="4.5"/><path d="M10.5 10.5 14 14"/></svg>
+                <input id="rules-search" class="s-input" type="search" placeholder="Find a rule" autocomplete="off"/>
+              </label>
+              <button class="tbtn" id="btn-rules-all" type="button"><span>Enable all</span></button>
+              <button class="tbtn" id="btn-rules-none" type="button"><span>Disable all</span></button>
+            </div>
+            <div id="rules-list" class="rules"></div>
+          </section>
+
+          <section class="card static wide about">
+            <h3>Keyboard</h3>
+            <div class="kbd-row"><kbd>/</kbd> focus search · <kbd>Esc</kbd> clear search · <kbd>R</kbd> rescan · <kbd>Alt</kbd>+<kbd>1–9</kbd> switch section · <kbd>Alt</kbd>+<kbd>Shift</kbd>+<kbd>S</kbd> open SecretSauce from any tab</div>
+          </section>
+        </div>
+      </div>
+    </section>
+
+  </main>
+</div>
+
+<script src="shared.js"></script>
+<script src="app/ui.js"></script>
+<script src="app/findings.js"></script>
+<script src="app/render.js"></script>
+<script src="app/recon.js"></script>
+<script src="app/main.js"></script>
+</body>
+</html>

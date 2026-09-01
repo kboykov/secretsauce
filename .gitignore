@@ -1,6 +1,11 @@
+dist/
+node_modules/
 .claude/
 *.pyc
 __pycache__/
-popup.html
-popup.js
-popup.css
+dev/screenshots/
+.impeccable/review/
+.impeccable/build/
+.impeccable/mocks/
+.impeccable/config.local.json
+.impeccable/hook.cache.json

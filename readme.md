@@ -1,137 +1,118 @@
 # SecretSauce
 
-A browser extension that automatically detects exposed API endpoints and secrets on any web page you visit, with built-in OSINT and recon tabs for deeper target investigation. Available for both Chrome and Firefox.
+A browser extension that detects exposed secrets, API keys and API endpoints on any page you visit, keeps a deduplicated per-host log across sessions, and bundles the OSINT lookups you reach for next (DNS, history, subdomains, web check, Wayback Machine). One codebase, shipped for Chrome (MV3) and Firefox (MV2).
 
-![Chrome Extension](https://img.shields.io/badge/Chrome-Extension-blue) ![Manifest V3](https://img.shields.io/badge/Manifest-V3-green) ![Firefox Extension](https://img.shields.io/badge/Firefox-Extension-orange) ![Manifest V2](https://img.shields.io/badge/Manifest-V2-yellow)
+![Chrome](https://img.shields.io/badge/Chrome-MV3-blue) ![Firefox](https://img.shields.io/badge/Firefox-MV2-orange) ![Tests](https://img.shields.io/badge/tests-node%20--test-green) ![Deps](https://img.shields.io/badge/dependencies-0-lightgrey)
 
-## Project Status
+## What it does
 
-SecretSauce is currently in an actively usable prototype state with a growing suite of recon tabs alongside the core scanning engine.
+**Scanning (content script)**
+- **Endpoints** from DOM attributes (`a[href]`, `form[action]`, `script[src]`, `data-*`, htmx `hx-*` …), inline scripts, same-site JS/JSON bundles, and the browser's own network history (Performance API), including URLs requested after page load.
+- **Call-site aware detection**: `fetch()`, `axios.*`, `$.ajax`, `xhr.open`, generic HTTP clients, Express-style routes, `new WebSocket(...)`. Methods come from the call when known and are guessed from the nearest verb otherwise.
+- **Template paths**: `` `/api/users/${id}` `` is captured as `/api/users/{id}` instead of being dropped.
+- **Secrets** via 116 rules (`src/rules/secrets.json`) plus a tuned high-entropy heuristic, with false-positive filtering for placeholders, digests, identifiers and integrity hashes.
+- **SPA aware**: rescans on route changes (URL polling plus `popstate` / `hashchange` / Navigation API).
+- **Persistent host log**: findings are merged into `chrome.storage.local` per hostname with occurrence counts, first/last seen, pages and sources, quota-safe.
 
-- Current focus: reliable same-host discovery, persistent hostname-scoped aggregation, a full-page review workflow, and integrated OSINT lookups
-- Working today: live scanning, SPA route rescans, hostname-based deduplicated logs, host-scoped export, reopening the app against previously scanned data, and one-click access to DNS records, historical data, subdomains, web health checks, and Wayback Machine URL enumeration
-- Current UX model: the Endpoints and Secrets tabs show the merged deduplicated result set for the current hostname by combining the live tab scan with the saved hostname log; all recon tabs are automatically scoped to the same hostname
-- Recommended workflow: keep the extension reloaded in Developer mode while iterating so content script and service worker changes are always current
+**App (full-page tab)**
+- Endpoints and Secrets views with search (supports `-term` exclusion), method / severity chips, source-kind filter, rule filter, sorting, expand-all, incremental rendering for thousands of results.
+- Per-finding actions: copy, copy as cURL, open, **dismiss** (per-host false-positive list you can review and restore).
+- **Hosts** view: every stored host with counts, severity breakdown, open / delete.
+- **Settings**: toggle external-script fetching, subdomain scope, entropy heuristic, SPA rescans, excluded hosts (`*.example.com`), per-rule enable/disable, theme, badge colouring, data wipe.
+- **Export**: JSON (full report), CSV (endpoints / secrets), TXT (URLs / secrets / both).
+- **Recon**: SecurityTrails DNS, A-record history and subdomains, web-check.xyz, and a Wayback Machine CDX table with type filters, an "interesting URLs" toggle, copy / export.
+- **Rail and drawer layout**: a 56px rail holds the sections (with live count badges), Rescan, Export and theme; a collapsible target drawer shows host, scan status, a severity ledger and coverage figures. Press `B` or click the logo to toggle it; the state is remembered and it auto-collapses on narrow windows.
+- Dark and light themes, keyboard shortcuts (`/` search, `R` rescan, `B` drawer, `Alt+1…9` sections, `Alt+Shift+S` opens the app from any tab).
+- Toolbar badge coloured by the highest severity found on the tab.
 
-## Features
+## Repository layout
 
-### Core Scanning
-- **Endpoint Detection** - discovers API endpoints via DOM scanning (`a[href]`, `form[action]`, `iframe[src]`, etc.), inline script pattern matching with `new URL()` resolution, and regex analysis of fetched external JS/JSON files
-- **Secret Detection** - scans page content and scripts against 60+ regex patterns covering AWS keys, GitHub tokens, Stripe keys, JWTs, private keys, and more
-- **Persistent Finding Log** - all discovered secrets and endpoints are appended to durable hostname-scoped `chrome.storage.local` logs, deduplicated across scans, and kept across page navigations and browser restarts
-- **Full-Page App** - clicking the extension icon opens a dedicated tab with a sidebar layout; no cramped popup
-- **Live Polling** - results update in real time as scripts are fetched and scanned
-- **Filter & Search** - filter endpoints by HTTP method, filter secrets by severity (critical / high / medium / low)
-- **Export** - download the current scan plus the current hostname log as a JSON file, or as a plain-text file (one URL or secret value per line)
-- **Badge Counter** - secret count shown on the extension icon
+```
+src/                      ← the Chrome extension, loadable as-is (no build step)
+├── manifest.json         Chrome MV3 manifest
+├── shared.js             SS namespace: storage wrappers, hostname helpers, host-log merge
+├── detect.js             SSDetect: pure detection engine (secrets, entropy, endpoints)
+├── content.js            Content script: orchestrates scanning, persists results
+├── background.js         Cross-browser background (feature-detects MV2/MV3 APIs)
+├── app.html / app.css    Full-page app shell + design system
+├── app/
+│   ├── ui.js             DOM helpers, icons, toasts, clipboard, downloads
+│   ├── findings.js       Live + stored merge, filters, sorting, CSV
+│   ├── render.js         Cards, tables, incremental lists
+│   ├── recon.js          Embedded tools + Wayback Machine
+│   └── main.js           Controller: state, polling, settings, hosts, export
+├── rules/secrets.json    Detection rules
+├── rules/frame_rules.json  declarativeNetRequest rules (Chrome only)
+└── icons/
 
-### OSINT & Recon Tabs
-- **DNS Records** — opens SecurityTrails DNS record view for the current hostname directly inside the app
-- **Historical Data** — opens SecurityTrails A-record history for the current hostname
-- **Subdomains** — opens SecurityTrails subdomain enumeration for the root domain
-- **Web Check** — opens a web-check.xyz health and security report for the current hostname
-- **Wayback Machine** — queries the Wayback Machine CDX API and renders all archived URLs for the current hostname in a filterable, sortable data table with per-row copy and bulk export
+manifests/firefox.json    Firefox MV2 manifest (swapped in by the build)
+build.mjs                 Zero-dependency build → dist/chrome, dist/firefox (+ zips)
+test/                     node --test suites for the detection engine and rules
+dev/                      Preview harness (mock chrome API) + screenshot script
+docs/IMPROVEMENTS.md      Review notes and roadmap
+releases/                 Signed Firefox releases
+```
 
-## Wayback Machine Tab
+The content script, background and app all load `shared.js` (and the content script also `detect.js`) as plain classic scripts, so there is no bundler and no duplication between browsers.
 
-The Wayback Machine tab fetches up to 10,000 archived URLs from `web.archive.org` for the current hostname on first open and presents them in an interactive table.
+## Install
 
-**Columns:** URL · MIME type · First seen · Last seen · Snapshot count
-
-**Toolbar controls:**
-- Full-text search — filters by URL and MIME type simultaneously
-- MIME type dropdown — `text/html` is always listed first, followed by all other types alphabetically
-- Sort selector — first seen (newest/oldest), last seen (newest/oldest), URL (A–Z / Z–A), snapshot count (most/fewest)
-- URL count indicator showing the number of currently visible rows
-- **Copy all URLs** — copies the filtered URL list to the clipboard
-- **Export TXT** — downloads the filtered URL list as a `.txt` file (one URL per line)
-
-Filters and sort reset automatically when switching to a different hostname. Data is cached for the session so re-opening the tab does not re-fetch.
-
-## Detection Approach
-
-### Endpoints
-1. DOM element scan - `a[href]`, `form[action]`, `iframe[src]`, `script[src]`, `link[href]`, `img[src]`, `source/video/audio[src]`; all resolved via `new URL(attr, location.href)` and filtered to the current hostname
-2. Inline script scan - six regex patterns (absolute URLs, `../`/`./` relative paths, `api/`-prefix paths, fetch/XHR calls, URL property assignments) with full `new URL` resolution
-3. External script scan - fetches all `<script src>` and lazy-chunk URLs, runs the same regex suite against the full text
-
-### Secrets
-Patterns loaded from `rules/secrets.json` (62 rules). Each match is filtered for false positives (template literals, placeholder strings, repeated characters, variable-name shapes).
-
-### Persistent Logging
-Live per-tab scan data is stored under `scan_<tabId>` for the active page, while background-managed `findings_log_host_v1_<hostname>` entries keep a deduplicated history of secrets and endpoints for each hostname. Secret log entries are deduplicated by value and endpoint log entries are deduplicated by method + URL, with occurrence counts, timestamps, sources, and page URLs merged into each record.
-
-### Current App Behavior
-- The `Endpoints` and `Secrets` tabs are hostname-scoped, not page-scoped
-- Reopening the app falls back to the saved hostname log when a live content-script connection is unavailable
-- Export includes the current live scan, the current hostname log, and the merged hostname-level finding set
-- All recon tabs (DNS, Historical Data, Subdomains, Web Check, Wayback Machine) are automatically scoped to the hostname of the page being scanned
-
-## Installation
-
-### Chrome
-1. Clone the repo
-2. Go to `chrome://extensions`, enable **Developer mode**
-3. Click **Load unpacked** and select the repo root folder
+### Chrome (development)
+1. Clone the repo.
+2. `chrome://extensions` → enable **Developer mode** → **Load unpacked** → select the **`src/`** folder.
+3. Edit files in `src/` and hit reload on the extensions page.
 
 ### Firefox
-
-**Option A — Install signed release (recommended)**
-1. Download `secretsauce-1.3.0.xpi` from the [`releases/`](releases/) folder
-2. In Firefox go to `about:addons` → gear icon → **Install Add-on From File** and select the `.xpi`
-
-**Option B — Load unpacked for development**
-1. Clone the repo
-2. Go to `about:debugging` → **This Firefox** → **Load Temporary Add-on**
-3. Select any file inside the `secretsauce-firefox/` folder (e.g. `manifest.json`)
-
-## File Structure
-
+```bash
+node build.mjs            # → dist/firefox/  and  dist/secretsauce-firefox-<version>.zip
 ```
-/                             Chrome extension (Manifest V3)
-├── manifest.json             Extension manifest (MV3)
-├── background.js             Service worker - opens app tab, manages badge, merges hostname logs
-├── content.js                Content script - DOM scan, inline scan, external JS fetch & regex
-├── app.html / app.js         Full-page results app + hostname log summary/export
-├── app.css                   Carbon/Midnight dark theme
-├── rules/secrets.json        Secret detection patterns
-└── icons/                    PNG icons (16, 48, 128)
+- Temporary: `about:debugging` → **This Firefox** → **Load Temporary Add-on** → pick `dist/firefox/manifest.json`.
+- Signed release: install the `.xpi` from [`releases/`](releases/) via `about:addons` → gear → **Install Add-on From File**. To publish a new version, upload `dist/secretsauce-firefox-<version>.zip` to AMO.
 
-secretsauce-firefox/          Firefox extension (Manifest V2)
-├── manifest.json             Extension manifest (MV2) with gecko settings
-├── background.js             Background script using browserAction API
-├── content.js                Content script (identical behaviour)
-├── app.html / app.js         Full-page results app (DOM-safe, no innerHTML)
-├── app.css                   Carbon/Midnight dark theme
-├── rules/secrets.json        Secret detection patterns
-└── icons/                    PNG icons (16, 48, 128)
-
-releases/
-└── secretsauce-1.3.0.xpi    Signed Firefox release
+### Build script
+```bash
+node build.mjs                    # build both targets and zips into dist/
+node build.mjs --watch            # rebuild on change
+node build.mjs --set-version 1.5.0
+npm test                          # detection + rules test-suite
 ```
-
-## Tabs Overview
-
-| Tab | Type | Data source |
-|-----|------|-------------|
-| Endpoints | Live + stored | Content script + `chrome.storage.local` |
-| Secrets | Live + stored | Content script + `chrome.storage.local` |
-| DNS Records | Embedded | SecurityTrails |
-| Historical Data | Embedded | SecurityTrails |
-| Subdomains | Embedded | SecurityTrails |
-| Web Check | Embedded | web-check.xyz |
-| Wayback Machine | Fetched + rendered | Wayback Machine CDX API |
+The build validates that both manifests share a version and that every referenced file exists.
 
 ## Usage
 
-Navigate to any page and click the SecretSauce icon in the toolbar. The app tab opens and begins scanning immediately. Use **Rescan** to re-run on the current page state. Switch to any recon tab to pull up external intelligence for the same hostname without leaving the app.
+Open any page and click the toolbar icon (or press `Alt+Shift+S`). The app opens next to the page and starts showing results as the scan progresses. Everything you see is the merge of the live tab scan with the saved log for that hostname, so revisiting a site accumulates knowledge over time. Use **Rescan** to re-run against the current page state; if the page was loaded before the extension was installed, Rescan injects the scanner for you.
 
-## Firefox vs Chrome — Key Differences
+Findings never leave the browser. The recon tabs open third-party sites (SecurityTrails, web-check.xyz, archive.org) with the target hostname in the URL, and the Chrome build strips `X-Frame-Options` / CSP on those two frame hosts only so they can be embedded.
+
+## Development
+
+```bash
+node dev/preview-server.mjs        # http://127.0.0.1:4173/preview.html — the real app with a mocked chrome.* API
+node dev/screenshot.mjs            # headless screenshots of every view into dev/screenshots/ (needs playwright-core)
+```
+Preview scenarios: `?scenario=full|scanning|stored|empty&theme=dark|light&host=example.com`.
+
+### Adding a detection rule
+Append to `src/rules/secrets.json`:
+```json
+{ "id": "vendor_token", "name": "Vendor API Token", "severity": "high", "regex": "\\bvt_[A-Za-z0-9]{40}\\b" }
+```
+- Regexes are JavaScript syntax. A leading `(?i)` is translated to the `i` flag.
+- If the credential is a capture group after some context (e.g. `password\s*=\s*['"]([^'"]+)`), the group is reported; otherwise the whole match is.
+- Run `npm test` — it compiles every rule, checks for duplicate ids and runs known-format samples.
+
+## Chrome vs Firefox
 
 | | Chrome | Firefox |
 |---|---|---|
-| Manifest | V3 | V2 |
-| Background | Service worker | Persistent background script |
+| Manifest | V3 (`src/manifest.json`) | V2 (`manifests/firefox.json`) |
+| Background | Service worker (`importScripts('shared.js')`) | Event page (`scripts: [shared.js, background.js]`) |
 | Toolbar API | `chrome.action` | `chrome.browserAction` |
-| Script injection | `chrome.scripting.executeScript` | `chrome.tabs.executeScript` |
-| Min version | — | 140.0 (desktop) / 142.0 (Android) |
+| Injection | `chrome.scripting.executeScript` | `chrome.tabs.executeScript` |
+| Frame header stripping | `declarativeNetRequest` | `webRequest` blocking listener |
+
+All of the above is feature-detected inside `background.js`; there is no per-browser source.
+
+## License
+
+MIT
