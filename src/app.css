@@ -153,7 +153,6 @@ svg { display: inline-block; vertical-align: middle; }
 
 /* ── Rail: sections and actions ──────────────────────────────────────────── */
 .rail { display: flex; flex-direction: column; align-items: center; gap: 4px; padding: 10px 0 10px; background: var(--bg-side); border-right: 1px solid var(--border); min-height: 0; overflow: hidden auto; z-index: 21; }
-.rail-brand { width: 40px; height: 40px; display: grid; place-items: center; margin-bottom: 6px; }
 #btn-drawer .ico-closed { display: none; }
 #btn-drawer[aria-pressed="false"] .ico-open { display: none; }
 #btn-drawer[aria-pressed="false"] .ico-closed { display: block; }
@@ -185,7 +184,11 @@ svg { display: inline-block; vertical-align: middle; }
 @keyframes drawer-out { to { opacity: 0; transform: translateX(-10px); } }
 
 .drawer-head { display: flex; align-items: center; gap: 10px; }
-.target-fav { width: 36px; height: 36px; border-radius: 10px; flex-shrink: 0; display: grid; place-items: center; font-weight: 800; font-size: 1rem; color: var(--on-brand); background: linear-gradient(135deg, var(--brand-a), var(--brand-b)); }
+/* The tile carries the target tab's own favicon when the tab reports one, and
+   falls back to a monogram of the host so the head never renders empty. */
+.target-fav { width: 36px; height: 36px; border-radius: 10px; flex-shrink: 0; display: grid; place-items: center; overflow: hidden; font-weight: 800; font-size: 1rem; color: var(--on-brand); background: linear-gradient(135deg, var(--brand-a), var(--brand-b)); }
+.target-fav[data-icon="true"] { background: var(--surface-2); border: 1px solid var(--border-2); }
+.target-fav img { width: 20px; height: 20px; object-fit: contain; display: block; }
 .target-text { min-width: 0; flex: 1; }
 .target-host { font-size: var(--fs-base); font-weight: 600; color: var(--text); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .target-url { font-size: var(--fs-xs); color: var(--text-3); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }

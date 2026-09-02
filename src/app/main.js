@@ -32,6 +32,8 @@
     activeTab: 'endpoints',
     masked: false,
     pollTimer: null,
+    favKey: '',
+    favSrc: '',
     ep: { search: '', method: '', kind: '', sort: 'recent', showIgnored: false, expandAll: false, open: new Set(), ctxOpen: new Set() },
     sec: { search: '', severity: '', rule: '', sort: 'severity', showIgnored: false, expandAll: false, open: new Set(), ctxOpen: new Set() },
   };
@@ -99,13 +101,71 @@
     }
   }
 
+  // ─── Target favicon ───────────────────────────────────────────────────────
+  // The tile mirrors the icon the target tab is actually showing. Both Chrome
+  // and Firefox expose it as tab.favIconUrl (via the "tabs" permission), but it
+  // can arrive late or change mid-navigation, so we retry on every target
+  // refresh until one renders and also react to tabs.onUpdated.
+  let favToken = 0;
+
+  function renderMonogram() {
+    const fav = $('target-fav');
+    const letter = (state.currentHost || '?').replace(/^www\./, '').charAt(0).toUpperCase();
+    if (fav.dataset.icon !== 'true' && fav.textContent === letter) return;
+    clear(fav);
+    fav.dataset.icon = 'false';
+    fav.textContent = letter;
+  }
+
+  function renderFavicon(src, token) {
+    const img = new Image();
+    img.alt = '';
+    img.decoding = 'async';
+    img.referrerPolicy = 'no-referrer';
+    img.addEventListener('load', () => {
+      if (token !== favToken) return;
+      const fav = $('target-fav');
+      clear(fav);
+      fav.dataset.icon = 'true';
+      fav.append(img);
+      state.favSrc = src;
+    });
+    // A 404 or blocked icon leaves favSrc empty so the next refresh retries.
+    img.addEventListener('error', () => { if (token === favToken) state.favSrc = ''; });
+    img.src = src;
+  }
+
+  async function updateFavicon(force) {
+    const fav = $('target-fav');
+    const key = `${state.targetTabId || ''}|${state.currentHost}`;
+    if (key !== state.favKey) {
+      state.favKey = key;
+      state.favSrc = '';
+      renderMonogram();
+    } else if (!force && fav.dataset.icon === 'true') {
+      return;
+    }
+    if (!state.targetTabId) return;
+    const token = ++favToken;
+    const tab = await SS.tabsGet(state.targetTabId);
+    if (token !== favToken) return;
+    const src = String(tab?.favIconUrl || '');
+    // Ignore privileged schemes (chrome://, moz-extension://…) the page can't load.
+    if (!/^(https?:|data:image\/)/i.test(src)) {
+      state.favSrc = '';
+      renderMonogram();
+      return;
+    }
+    if (src !== state.favSrc) renderFavicon(src, token);
+  }
+
   function updateTarget() {
     const host = state.currentHost || 'No host';
     $('target-host').textContent = host;
     $('target-host').title = host;
     $('target-url').textContent = state.currentPageUrl || (state.currentHost ? `https://${state.currentHost}/` : 'No page in context');
     $('target-url').title = state.currentPageUrl || '';
-    $('target-fav').textContent = (state.currentHost || '?').replace(/^www\./, '').charAt(0).toUpperCase();
+    updateFavicon();
     document.title = state.currentHost ? `${state.currentHost} · SecretSauce` : 'SecretSauce';
   }
 
@@ -758,6 +818,14 @@
     if (state.targetTabId) {
       const tab = await SS.tabsGet(state.targetTabId);
       if (tab?.url) setContext(tab.url, SS.getHostname(tab.url));
+    }
+
+    if (state.targetTabId && api.tabs?.onUpdated?.addListener) {
+      api.tabs.onUpdated.addListener((tabId, changeInfo) => {
+        if (tabId !== state.targetTabId) return;
+        if (!('favIconUrl' in changeInfo) && !changeInfo.url && changeInfo.status !== 'complete') return;
+        updateFavicon(true);
+      });
     }
     Recon.setHost(state.currentHost);
     await loadHostLog();

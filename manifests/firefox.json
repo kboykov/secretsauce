@@ -1,7 +1,7 @@
 {
   "manifest_version": 2,
   "name": "SecretSauce",
-  "version": "1.4.0",
+  "version": "1.4.1",
   "description": "Detect exposed secrets, API keys and endpoints on any page, with built-in recon tabs.",
   "author": "K. Boykov",
   "browser_specific_settings": {
@@ -9,7 +9,9 @@
       "id": "secretsauce@extension",
       "strict_min_version": "140.0",
       "data_collection_permissions": {
-        "required": ["none"],
+        "required": [
+          "none"
+        ],
         "optional": []
       }
     },
@@ -40,20 +42,31 @@
   },
   "commands": {
     "open-secretsauce": {
-      "suggested_key": { "default": "Alt+Shift+S" },
+      "suggested_key": {
+        "default": "Alt+Shift+S"
+      },
       "description": "Open SecretSauce for the current tab"
     }
   },
   "content_scripts": [
     {
-      "matches": ["<all_urls>"],
-      "js": ["shared.js", "detect.js", "content.js"],
+      "matches": [
+        "<all_urls>"
+      ],
+      "js": [
+        "shared.js",
+        "detect.js",
+        "content.js"
+      ],
       "run_at": "document_idle",
       "all_frames": false
     }
   ],
   "background": {
-    "scripts": ["shared.js", "background.js"],
+    "scripts": [
+      "shared.js",
+      "background.js"
+    ],
     "persistent": false
   }
 }

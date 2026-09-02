@@ -1,6 +1,6 @@
 {
   "name": "secretsauce",
-  "version": "1.4.0",
+  "version": "1.4.1",
   "private": true,
   "description": "Browser extension that detects exposed secrets, API keys and endpoints, with built-in recon tabs.",
   "type": "module",
